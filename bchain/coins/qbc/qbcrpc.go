@@ -9,7 +9,7 @@ import (
 )
 
 // qbcRPC is an interface to JSON-RPC bitcoind service.
-type qbcCRPC struct {
+type qbcRPC struct {
 	*btc.BitcoinRPC
 }
 
