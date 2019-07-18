@@ -25,7 +25,7 @@
     "version": "0.16.4.0",
     "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v0.1/quebecoin.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "21414a35bcc641a2716764a003c9824630c05d6ef0fd297fba71b3b1482c5ab0",
+    "verification_source": "7a10e79b8f36e7baafaec1cf658e852a46ecc29fd83a082fe41acd82281ec43a",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
       "bin/quebecoin-qt"
