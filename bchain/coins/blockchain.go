@@ -33,7 +33,7 @@ import (
 	"blockbook/bchain/coins/vipstarcoin"
 	"blockbook/bchain/coins/xzc"
 	"blockbook/bchain/coins/zec"
-	"blockbook/bchain/coin/qbc"
+	"blockbook/bchain/coins/qbc"
 	"blockbook/common"
 	"context"
 	"encoding/json"
