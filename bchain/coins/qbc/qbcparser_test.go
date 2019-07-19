@@ -32,13 +32,13 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "MUs3PnZLdBQyct2emEc7QJvVnjeQj52kug"},
+			args:    args{address: "QhZsGeweJd7zAM9LxbGfHK6npmhxStM2uE"},
 			want:    "76a914e5f419d3b464c67152fb9d3ecc36932d5280673f88ac",
 			wantErr: false,
 		},
 		{
 			name:    "P2SH1",
-			args:    args{address: "4ijSZESajWvhhJAz1APdzGivwc31WCjxHD"},
+			args:    args{address: "37P2coFRto5CRZcduV4N3mdnRb1EdZWtS7"},
 			want:    "a9143e69d8c4772eb34d77c96aae58c041e887b404f387",
 			wantErr: false,
 		},
@@ -80,14 +80,14 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "P2PKH1",
 			args:    args{script: "76a914e5f419d3b464c67152fb9d3ecc36932d5280673f88ac"},
-			want:    []string{"MUs3PnZLdBQyct2emEc7QJvVnjeQj52kug"},
+			want:    []string{"QhZsGeweJd7zAM9LxbGfHK6npmhxStM2uE"},
 			want2:   true,
 			wantErr: false,
 		},
 		{
 			name:    "P2SH1",
 			args:    args{script: "a9143e69d8c4772eb34d77c96aae58c041e887b404f387"},
-			want:    []string{"4ijSZESajWvhhJAz1APdzGivwc31WCjxHD"},
+			want:    []string{"37P2coFRto5CRZcduV4N3mdnRb1EdZWtS7"},
 			want2:   true,
 			wantErr: false,
 		},
@@ -101,7 +101,7 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "pubkey",
 			args:    args{script: "2102c5c7165eb66f35a120f2f9d97fa61b1be6c621f9b868454b35a284fa7ecc831eac"},
-			want:    []string{"MDac4WH5jxqWLwe6kmWzR3ERu6BgszXUwn"},
+			want:    []string{"QSHRwNfPRQYWtQknx8BYJ3Qiw8FEbXamWr"},
 			want2:   false,
 			wantErr: false,
 		},
