@@ -2,7 +2,7 @@
   "coin": {
     "name": "Quebecoin",
     "shortcut": "QBC",
-    "label": "qbc",
+    "label": "Quebecoin",
     "alias": "qbc"
   },
   "ports": {

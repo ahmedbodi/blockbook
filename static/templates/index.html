@@ -8,20 +8,16 @@
 {{- end -}}
 <div class="row">
     <div class="col-md-6">
-        <h3>Blockbook</h3>
+        <h3>Explorer</h3>
         <table class="table data-table">
             <tbody>
-                <tr>
-                    <td style="width: 33%;">Coin</td>
-                    <td class="data">{{$bb.Coin}}</td>
-                </tr>
                 <tr>
                     <td>Host</td>
                     <td class="data">{{$bb.Host}}</td>
                 </tr>
                 <tr>
                     <td>Version / Commit / Build</td>
-                    <td class="data">{{$bb.Version}} / <a href="https://github.com/trezor/blockbook/commit/{{$bb.GitCommit}}" target="_blank" rel="noopener noreferrer">{{$bb.GitCommit}}</a> / {{$bb.BuildTime}}</td>
+                    <td class="data">{{$bb.Version}} / <a href="https://github.com/wkibbler/blockbook/commit/{{$bb.GitCommit}}" target="_blank" rel="noopener noreferrer">{{$bb.GitCommit}}</a> / {{$bb.BuildTime}}</td>
                 </tr>
                 <tr>
                     <td>Synchronized</td>
@@ -55,7 +51,7 @@
         </table>
     </div>
     <div class="col-md-6">
-        <h3>Backend</h3>
+        <h3>Daemon</h3>
         <table class="table data-table">
             <tbody>
                 {{- if $be.BackendError -}}
@@ -110,5 +106,4 @@
         </table>
     </div>
 </div>
-<span class="text-muted">{{$bb.About}}</span>
 {{end}}
