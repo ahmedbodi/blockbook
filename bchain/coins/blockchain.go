@@ -34,6 +34,7 @@ import (
 	"blockbook/bchain/coins/xzc"
 	"blockbook/bchain/coins/zec"
 	"blockbook/bchain/coins/qbc"
+	"blockbook/bchain/coins/coffee"
 	"blockbook/common"
 	"context"
 	"encoding/json"
@@ -99,6 +100,7 @@ func init() {
 	BlockChainFactories["Ravencoin"] = ravencoin.NewRavencoinRPC
 	BlockChainFactories["Ritocoin"] = ritocoin.NewRitocoinRPC
 	BlockChainFactories["QBC"] = qbc.NewqbcRPC
+	BlockChainFactories["coffee"] = coffee.NewcoffeeRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
