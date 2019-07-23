@@ -28,7 +28,6 @@
     "verification_source": "5a5edb738f67fdda0021949e5cbf297849d33440617b5ea94db46cd81eebbfbe",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
-      "/coffee-qt"
     ],
     "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/coffeed -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
     "logrotate_files_template": "{{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend/*.log",
