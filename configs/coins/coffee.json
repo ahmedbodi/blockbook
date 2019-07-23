@@ -23,9 +23,9 @@
     "package_revision": "satoshilabs-1",
     "system_user": "coffee",
     "version": "3.1.1",
-    "binary_url": "https://github.com/worldcoffeefederation/Coffee/releases/download/1.1.0/coffee-1.1.0-x86_64-linux-gnu.tar.gz",
+    "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.1/coffee.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "9a0b48832081ca3bf30088421256f732955f977bb796e1e0e49453bcd707e364",
+    "verification_source": "5a5edb738f67fdda0021949e5cbf297849d33440617b5ea94db46cd81eebbfbe",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
       "/coffee-qt"
