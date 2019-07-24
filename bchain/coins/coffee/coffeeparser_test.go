@@ -36,7 +36,7 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "DRM8TaiY38qcHbgdytp8oETreobBLHtpeE"},
+			args:    args{address: "TWBEvP9ctT4GumZfqaUHmczPgTcCBnMF41"},
 			want:    "76a914dda91c0396050d660f9c0e38f78064486bbfcb2c88ac",
 			wantErr: false,
 		},
@@ -72,14 +72,14 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "P2PKH1",
 			args:    args{script: "76a914dda91c0396050d660f9c0e38f78064486bbfcb2c88ac"},
-			want:    []string{"DRM8TaiY38qcHbgdytp8oETreobBLHtpeE"},
+			want:    []string{"TWBEvP9ctT4GumZfqaUHmczPgTcCBnMF41"},
 			want2:   true,
 			wantErr: false,
 		},
 		{
 			name:    "pubkey",
 			args:    args{script: "210251c5555ff3c684aebfca92f5329e2f660da54856299da067060a1bcf5e8fae73ac"},
-			want:    []string{"DKL3QzCbJqrHpRKAHvEqsomsDhkQPvVzZg"},
+			want:    []string{"TQA9sndgAA4xSbCC9btzrCJQFMmRJTjb6Z"},
 			want2:   false,
 			wantErr: false,
 		},
