@@ -23,9 +23,9 @@
     "package_revision": "satoshilabs-1",
     "system_user": "nyc3",
     "version": "2.4.0.0",
-    "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.2/nyc3.tar.gz",
+    "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.2/nyc3-bin.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "7ffb6ca2412e027b6e4fc1cee4179895673a53255430dfd39beb095a6179f2d3",
+    "verification_source": "1bcb4c173e301961bf73e30ebcd48a24646b8141c33ae675ecd0456b833aafea",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
     ],
