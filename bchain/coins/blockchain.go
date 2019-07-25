@@ -35,7 +35,6 @@ import (
 	"blockbook/bchain/coins/zec"
 	"blockbook/bchain/coins/qbc"
 	"blockbook/bchain/coins/coffee"
-	"blockbook/bchain/coins/nyc3"
 	"blockbook/bchain/coins/hash"
 	"blockbook/common"
 	"context"
