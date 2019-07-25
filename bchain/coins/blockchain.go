@@ -102,7 +102,6 @@ func init() {
 	BlockChainFactories["Ravencoin"] = ravencoin.NewRavencoinRPC
 	BlockChainFactories["Ritocoin"] = ritocoin.NewRitocoinRPC
 	BlockChainFactories["QBC"] = qbc.NewqbcRPC
-	BlockChainFactories["coffee"] = coffee.NewcoffeeRPC
 	BlockChainFactories["nyc3"] = nyc3.NewNyc3RPC
 	BlockChainFactories["coffee"] = coffee.NewCoffeERPC
 	BlockChainFactories["hash"] = hash.NewHasHRPC
