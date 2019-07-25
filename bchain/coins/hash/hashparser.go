@@ -12,7 +12,7 @@ import (
 
 // magic numbers
 const (
-	MainnetMagic wire.BitcoinNet = 0xee7645af
+	MainnetMagic wire.BitcoinNet = 0x09a1e718
 )
 
 // chain parameters
@@ -26,9 +26,9 @@ func init() {
 
 	MainNetParams.Bech32HRPSegwit = "my"
 
-	MainNetParams.PubKeyHashAddrID = []byte{50} // 0x32 - starts with M
-	MainNetParams.ScriptHashAddrID = []byte{9}  // 0x09 - starts with 4
-	MainNetParams.PrivateKeyID = []byte{178}    // 0xB2
+	MainNetParams.PubKeyHashAddrID = []byte{40} // 0x32 - starts with M
+	MainNetParams.ScriptHashAddrID = []byte{23}  // 0x09 - starts with 4
+	MainNetParams.PrivateKeyID = []byte{63}    // 0xB2
 
 	MainNetParams.HDCoinType = 90
 }
