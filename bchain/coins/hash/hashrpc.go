@@ -8,27 +8,29 @@ import (
 	"github.com/golang/glog"
 )
 
-type HasHRPC struct {
+// hashRPC is an interface to JSON-RPC bitcoind service.
+type hashRPC struct {
 	*btc.BitcoinRPC
 }
 
-func NewHasHRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+// NewhashRPC returns new hashRPC instance.
+func NewhashRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &HasHRPC{
+	s := &hashRPC{
 		b.(*btc.BitcoinRPC),
 	}
-	s.RPCMarshaler = btc.JSONMarshalerV1{}
-	s.ChainConfig.SupportsEstimateFee = true
-	s.ChainConfig.SupportsEstimateSmartFee = false
+	s.RPCMarshaler = btc.JSONMarshalerV2{}
+	s.ChainConfig.SupportsEstimateFee = false
 
 	return s, nil
 }
 
-func (b *HasHRPC) Initialize() error {
+// Initialize initializes hashRPC instance.
+func (b *hashRPC) Initialize() error {
 	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
@@ -39,7 +41,7 @@ func (b *HasHRPC) Initialize() error {
 	params := GetChainParams(chainName)
 
 	// always create parser
-	b.Parser = NewHasHParser(params, b.ChainConfig)
+	b.Parser = NewhashParser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainnetMagic {
@@ -53,4 +55,19 @@ func (b *HasHRPC) Initialize() error {
 	glog.Info("rpc: block chain ", params.Name)
 
 	return nil
+}
+
+// GetBlock returns block with given hash.
+func (b *hashRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
+	var err error
+	if hash == "" {
+		hash, err = b.GetBlockHash(height)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !b.ParseBlocks {
+		return b.GetBlockFull(hash)
+	}
+	return b.GetBlockWithoutHeader(hash, height)
 }
