@@ -32,13 +32,13 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "MUs3PnZLdBQyct2emEc7QJvVnjeQj52kug"},
+			args:    args{address: "HTV1YhaTXNnDSYdnX3GvZ4CdVh4ycAADjX"},
 			want:    "76a914e5f419d3b464c67152fb9d3ecc36932d5280673f88ac",
 			wantErr: false,
 		},
 		{
 			name:    "P2SH1",
-			args:    args{address: "4ijSZESajWvhhJAz1APdzGivwc31WCjxHD"},
+			args:    args{address: "AMTtLkccg3Qy9N8CM346n2XwkfeDTJpnVL"},
 			want:    "a9143e69d8c4772eb34d77c96aae58c041e887b404f387",
 			wantErr: false,
 		},
@@ -80,14 +80,14 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "P2PKH1",
 			args:    args{script: "76a914e5f419d3b464c67152fb9d3ecc36932d5280673f88ac"},
-			want:    []string{"MUs3PnZLdBQyct2emEc7QJvVnjeQj52kug"},
+			want:    []string{"HTV1YhaTXNnDSYdnX3GvZ4CdVh4ycAADjX"},
 			want2:   true,
 			wantErr: false,
 		},
 		{
 			name:    "P2SH1",
 			args:    args{script: "a9143e69d8c4772eb34d77c96aae58c041e887b404f387"},
-			want:    []string{"4ijSZESajWvhhJAz1APdzGivwc31WCjxHD"},
+			want:    []string{"AMTtLkccg3Qy9N8CM346n2XwkfeDTJpnVL"},
 			want2:   true,
 			wantErr: false,
 		},
@@ -101,7 +101,7 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "pubkey",
 			args:    args{script: "2102c5c7165eb66f35a120f2f9d97fa61b1be6c621f9b868454b35a284fa7ecc831eac"},
-			want:    []string{"MDac4WH5jxqWLwe6kmWzR3ERu6BgszXUwn"},
+			want:    []string{"HCCaDRJCeACkAcFEWaBoZnWZc3cFngampP"},
 			want2:   false,
 			wantErr: false,
 		},
@@ -156,7 +156,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9141cba92fe1510b8c73550fd4d3e0b44acdffcd12d88ac",
 					Addresses: []string{
-						"MAX4fCkTJwaRzbA3xzJp9DjrMwnnK32T6Z",
+						"H992p7maD8wfpFmBinydHy1z4uDMHVm3ww",
 					},
 				},
 			},
@@ -166,7 +166,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9142f86cdfa98cac89143cf9e3d309cc072caccdf6f88ac",
 					Addresses: []string{
-						"MCETUqM7MH6NietcsPY3w2sVUKz255m1yY",
+						"HArRdkNEFUTcYKVkdCCs5n9dBHQayxVi31",
 					},
 				},
 			},
