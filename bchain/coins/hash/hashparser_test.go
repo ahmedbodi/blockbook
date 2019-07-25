@@ -36,7 +36,7 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "DRM8TaiY38qcHbgdytp8oETreobBLHtpeE"},
+			args:    args{address: "HSjAJfhR8wUNTw5WE69KeVBiwrAcSjs11K"},
 			want:    "76a914dda91c0396050d660f9c0e38f78064486bbfcb2c88ac",
 			wantErr: false,
 		},
@@ -72,14 +72,14 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 		{
 			name:    "P2PKH1",
 			args:    args{script: "76a914dda91c0396050d660f9c0e38f78064486bbfcb2c88ac"},
-			want:    []string{"DRM8TaiY38qcHbgdytp8oETreobBLHtpeE"},
+			want:    []string{"HSjAJfhR8wUNTw5WE69KeVBiwrAcSjs11K"},
 			want2:   true,
 			wantErr: false,
 		},
 		{
 			name:    "pubkey",
 			args:    args{script: "210251c5555ff3c684aebfca92f5329e2f660da54856299da067060a1bcf5e8fae73ac"},
-			want:    []string{"DKL3QzCbJqrHpRKAHvEqsomsDhkQPvVzZg"},
+			want:    []string{"HLi5G5BUQeV3zki2Y7a2j4VjWkKqScobkM"},
 			want2:   false,
 			wantErr: false,
 		},
@@ -162,7 +162,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "210251c5555ff3c684aebfca92f5329e2f660da54856299da067060a1bcf5e8fae73ac",
 					Addresses: []string{
-						"DKL3QzCbJqrHpRKAHvEqsomsDhkQPvVzZg",
+						"NTyo11YunUsnVmjfo194mUTsMh3NwpUwik",
 					},
 				},
 			},
@@ -172,7 +172,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914b4aa56c103b398f875bb8d15c3bb4136aa62725f88ac",
 					Addresses: []string{
-						"DMcNE98UfuqEK2gGFfKB4YpWAWqbwHRATH",
+						"Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm",
 					},
 				},
 			},
@@ -209,7 +209,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914dda91c0396050d660f9c0e38f78064486bbfcb2c88ac",
 					Addresses: []string{
-						"DRM8TaiY38qcHbgdytp8oETreobBLHtpeE",
+						"NVts14RvmSehubV4z75U5pCuMnpK1KZB4p",
 					},
 				},
 			},
@@ -239,7 +239,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914dbe6d470fa9fe4d037043533eff4f80aeef0c8d288ac",
 					Addresses: []string{
-						"DRBq3cEq23QYUAmHsocC6fDRvJE7Sr5HEZ",
+						"NcEUbbWKheQrZMxsByQENLLfbPHTZuRThW",
 					},
 				},
 			},
