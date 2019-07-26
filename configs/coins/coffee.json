@@ -25,7 +25,7 @@
     "version": "3.1.1",
     "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.1/coffee.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "5a5edb738f67fdda0021949e5cbf297849d33440617b5ea94db46cd81eebbfbe",
+    "verification_source": "8be64685f45fba58f433f08eb97d8dfff702220b09012f2c4ab35e0cb46e5a51",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
     ],
