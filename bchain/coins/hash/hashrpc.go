@@ -23,8 +23,9 @@ func NewhashRPC(config json.RawMessage, pushHandler func(bchain.NotificationType
 	s := &hashRPC{
 		b.(*btc.BitcoinRPC),
 	}
-	s.RPCMarshaler = btc.JSONMarshalerV2{}
-	s.ChainConfig.SupportsEstimateFee = false
+	s.RPCMarshaler = btc.JSONMarshalerV1{}
+	s.ChainConfig.SupportsEstimateFee = true
+	s.ChainConfig.SupportsEstimateSmartFee = false
 
 	return s, nil
 }
@@ -55,19 +56,4 @@ func (b *hashRPC) Initialize() error {
 	glog.Info("rpc: block chain ", params.Name)
 
 	return nil
-}
-
-// GetBlock returns block with given hash.
-func (b *hashRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
-	var err error
-	if hash == "" {
-		hash, err = b.GetBlockHash(height)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !b.ParseBlocks {
-		return b.GetBlockFull(hash)
-	}
-	return b.GetBlockWithoutHeader(hash, height)
 }
