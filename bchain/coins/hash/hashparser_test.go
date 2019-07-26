@@ -82,7 +82,7 @@ func Test_GetAddressesFromAddrDesc(t *testing.T) {
 			want:    []string{"DKL3QzCbJqrHpRKAHvEqsomsDhkQPvVzZg"},
 			want2:   false,
 			wantErr: false,
-		}
+		},
 	}
 
 	parser := NewhashParser(GetChainParams("main"), &btc.Configuration{})
@@ -183,7 +183,7 @@ func Test_PackTx(t *testing.T) {
 			},
 			want:    testTxPacked1,
 			wantErr: false,
-		}
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -221,7 +221,7 @@ func Test_UnpackTx(t *testing.T) {
 			want:    &testTx1,
 			want1:   100,
 			wantErr: false,
-		}
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -254,7 +254,7 @@ var testParseBlockTxs = map[int]testBlock{
 		txs: []string{
 			"98aee43b0b8e0764404dce62dfd691b97e948eed82794b4bc8e91e9f46827f12"
 		},
-	}
+	},
 }
 
 func helperLoadBlock(t *testing.T, height int) []byte {
