@@ -32,13 +32,13 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "RAoGkGhKwzxLnstApumYPD2eTrAJ849cga"},
+			args:    args{address: "Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm"},
 			want:    "76a91410a8805f1a6af1a5927088544b0b6ec7d6f0ab8b88ac",
 			wantErr: false,
 		},
 		{
 			name:    "P2PKH2",
-			args:    args{address: "RTq37kPJqMS36tZYunxo2abrBMLeYSCAaa"},
+			args:    args{address: "Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm"},
 			want:    "76a914cb78181d62d312fdb9aacca433570150dcf0dec288ac",
 			wantErr: false,
 		},
@@ -50,7 +50,7 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 		},
 		{
 			name:    "P2SH2",
-			args:    args{address: "rDzGemZkv9FbDDh5pvWfr7TWtMUnNRRE7T"},
+			args:    args{address: "Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm"},
 			want:    "a914550bc2fcc1992afade4d298326ee6a03ab975a9387",
 			wantErr: false,
 		},
@@ -104,7 +104,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914587a2afa560ccaeaeb67cb72a0db7e2573a179e488ac",
 					Addresses: []string{
-						"RHM1tmdvkk7vDoiGxwUJAMNNmDqywZ5tEn",
+						"NTyo11YunUsnVmjfo194mUTsMh3NwpUwik",
 					},
 				},
 			},
@@ -114,7 +114,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914d85e6ab66ab0b2c4cfd40ca3b0a779529da5799288ac",
 					Addresses: []string{
-						"RV1F99b9UBBrCM8aNKugsqsDM8iqoCq7Mt",
+						"Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm",
 					},
 				},
 			},
@@ -152,7 +152,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9146d7badec5426b880df25a3afc50e476c2423b34b88ac",
 					Addresses: []string{
-						"RKG5tpWwjhtqddTgA3QhUh7QmKcuvBnhBX",
+						"NVts14RvmSehubV4z75U5pCuMnpK1KZB4p",
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914b3020d0ab85710151fa509d5d9a4e783903d681888ac",
 					Addresses: []string{
-						"RRbhVMbLfuezHPwUMujTmDFAzv64Y9mJqd",
+						"NcEUbbWKheQrZMxsByQENLLfbPHTZuRThW",
 					},
 				},
 			},
