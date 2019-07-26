@@ -1,8 +1,8 @@
 {
   "coin": {
-    "name": "NewYorkCoin3",
+    "name": "nyc3",
     "shortcut": "NYC3",
-    "label": "nyc3",
+    "label": "NewYorkCoin3",
     "alias": "nyc3"
   },
   "ports": {
