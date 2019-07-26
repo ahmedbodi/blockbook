@@ -25,7 +25,7 @@
     "version": "2.4.0.0",
     "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.2/nyc3.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "bb3af5b3ce54b0ae29a697df1550985f271283836c63e11bfe5b418352c95830",
+    "verification_source": "92bb439543447eac8f5b53323f714f257e6218f6803c4fb6c493dcbaede05b54",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
     ],
