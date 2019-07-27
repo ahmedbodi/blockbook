@@ -1,4 +1,4 @@
-package nyc3
+package hash
 
 import (
 	"blockbook/bchain"
@@ -9,18 +9,18 @@ import (
 )
 
 // RavencoinRPC is an interface to JSON-RPC bitcoind service.
-type Nyc3RPC struct {
+type hashRPC struct {
 	*btc.BitcoinRPC
 }
 
 // NewRavencoinRPC returns new RavencoinRPC instance.
-func NewNyc3RPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+func NewhashRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &Nyc3RPC{
+	s := &hashRPC{
 		b.(*btc.BitcoinRPC),
 	}
 	s.RPCMarshaler = btc.JSONMarshalerV1{}
@@ -30,7 +30,7 @@ func NewNyc3RPC(config json.RawMessage, pushHandler func(bchain.NotificationType
 }
 
 // Initialize initializes RavencoinRPC instance.
-func (b *Nyc3RPC) Initialize() error {
+func (b *hashRPC) Initialize() error {
 	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (b *Nyc3RPC) Initialize() error {
 	params := GetChainParams(chainName)
 
 	// always create parser
-	b.Parser = NewNyc3Parser(params, b.ChainConfig)
+	b.Parser = NewhashParser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainnetMagic {
