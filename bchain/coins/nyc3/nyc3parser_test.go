@@ -104,7 +104,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914587a2afa560ccaeaeb67cb72a0db7e2573a179e488ac",
 					Addresses: []string{
-						"NTyo11YunUsnVmjfo194mUTsMh3NwpUwik",
+						"HEaxCbgAZ8rPs8vYUYovTqveB8h7e8iPqR",
 					},
 				},
 			},
@@ -114,7 +114,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914d85e6ab66ab0b2c4cfd40ca3b0a779529da5799288ac",
 					Addresses: []string{
-						"Nfe2FPW8VuwiUK9yCPaTUxxhwbvEq4fWTm",
+						"HSFBSydPGZvKqgLqswFKBLRUm3ZyfYRpky",
 					},
 				},
 			},
@@ -152,7 +152,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9146d7badec5426b880df25a3afc50e476c2423b34b88ac",
 					Addresses: []string{
-						"NVts14RvmSehubV4z75U5pCuMnpK1KZB4p",
+						"HGW2CeZBY6dKGxfwfekKnBfgBEU3gR7F9H",
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a914b3020d0ab85710151fa509d5d9a4e783903d681888ac",
 					Addresses: []string{
-						"NcEUbbWKheQrZMxsByQENLLfbPHTZuRThW",
+						"HNqdoBdaUJPTvj9jsX564hoSQpwCJqaLLf",
 					},
 				},
 			},
