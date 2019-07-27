@@ -1,4 +1,4 @@
-package hash
+package nyc3
 
 import (
 	"blockbook/bchain"
@@ -8,30 +8,29 @@ import (
 	"github.com/golang/glog"
 )
 
-// hashRPC is an interface to JSON-RPC bitcoind service.
-type hashRPC struct {
+// RavencoinRPC is an interface to JSON-RPC bitcoind service.
+type Nyc3RPC struct {
 	*btc.BitcoinRPC
 }
 
-// NewhashRPC returns new hashRPC instance.
-func NewhashRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+// NewRavencoinRPC returns new RavencoinRPC instance.
+func NewNyc3RPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &hashRPC{
+	s := &Nyc3RPC{
 		b.(*btc.BitcoinRPC),
 	}
 	s.RPCMarshaler = btc.JSONMarshalerV1{}
-	s.ChainConfig.SupportsEstimateFee = true
-	s.ChainConfig.SupportsEstimateSmartFee = false
+	s.ChainConfig.SupportsEstimateFee = false
 
 	return s, nil
 }
 
-// Initialize initializes hashRPC instance.
-func (b *hashRPC) Initialize() error {
+// Initialize initializes RavencoinRPC instance.
+func (b *Nyc3RPC) Initialize() error {
 	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
@@ -42,7 +41,7 @@ func (b *hashRPC) Initialize() error {
 	params := GetChainParams(chainName)
 
 	// always create parser
-	b.Parser = NewhashParser(params, b.ChainConfig)
+	b.Parser = NewNyc3Parser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainnetMagic {

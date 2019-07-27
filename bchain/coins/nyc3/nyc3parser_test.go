@@ -1,6 +1,6 @@
 // +build unittest
 
-package nyc3
+package hash
 
 import (
 	"blockbook/bchain"
@@ -55,7 +55,7 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	parser := NewNyc3Parser(GetChainParams("main"), &btc.Configuration{})
+	parser := NewhashParser(GetChainParams("main"), &btc.Configuration{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -175,7 +175,7 @@ func Test_PackTx(t *testing.T) {
 		tx        bchain.Tx
 		height    uint32
 		blockTime int64
-		parser    *Nyc3Parser
+		parser    *hashParser
 	}
 	tests := []struct {
 		name    string
@@ -184,23 +184,23 @@ func Test_PackTx(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "nyc3-1",
+			name: "hash-1",
 			args: args{
 				tx:        testTx1,
 				height:    657540,
 				blockTime: 1554837703,
-				parser:    NewNyc3Parser(GetChainParams("main"), &btc.Configuration{}),
+				parser:    NewhashParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    testTxPacked1,
 			wantErr: false,
 		},
 		{
-			name: "nyc3-2",
+			name: "hash-2",
 			args: args{
 				tx:        testTx2,
 				height:    657540,
 				blockTime: 1554837703,
-				parser:    NewNyc3Parser(GetChainParams("main"), &btc.Configuration{}),
+				parser:    NewhashParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    testTxPacked2,
 			wantErr: false,
@@ -224,7 +224,7 @@ func Test_PackTx(t *testing.T) {
 func Test_UnpackTx(t *testing.T) {
 	type args struct {
 		packedTx string
-		parser   *Nyc3Parser
+		parser   *hashParser
 	}
 	tests := []struct {
 		name    string
@@ -234,20 +234,20 @@ func Test_UnpackTx(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "nyc3-1",
+			name: "hash-1",
 			args: args{
 				packedTx: testTxPacked1,
-				parser:   NewNyc3Parser(GetChainParams("main"), &btc.Configuration{}),
+				parser:   NewhashParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    &testTx1,
 			want1:   657540,
 			wantErr: false,
 		},
 		{
-			name: "nyc3-2",
+			name: "hash-2",
 			args: args{
 				packedTx: testTxPacked2,
-				parser:   NewNyc3Parser(GetChainParams("main"), &btc.Configuration{}),
+				parser:   NewhashParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    &testTx2,
 			want1:   657540,
