@@ -175,7 +175,7 @@ func Test_PackTx(t *testing.T) {
 		tx        bchain.Tx
 		height    uint32
 		blockTime int64
-		parser    *Byc3Parser
+		parser    *Nyc3Parser
 	}
 	tests := []struct {
 		name    string
