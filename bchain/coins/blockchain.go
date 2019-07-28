@@ -37,6 +37,7 @@ import (
 	"blockbook/bchain/coins/coffee"
 	"blockbook/bchain/coins/hash"
 	"blockbook/bchain/coins/nyc3"
+	"blockbook/bchain/coins/sin"
 	"blockbook/common"
 	"context"
 	"encoding/json"
@@ -105,6 +106,7 @@ func init() {
 	BlockChainFactories["coffee"] = coffee.NewCoffeERPC
 	BlockChainFactories["hash"] = hash.NewhashRPC
 	BlockChainFactories["nyc3"] = nyc3.NewNyc3RPC
+	blockChainFactories["sin"] = sin.NewsinRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
