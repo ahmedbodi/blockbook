@@ -106,7 +106,7 @@ func init() {
 	BlockChainFactories["coffee"] = coffee.NewCoffeERPC
 	BlockChainFactories["hash"] = hash.NewhashRPC
 	BlockChainFactories["nyc3"] = nyc3.NewNyc3RPC
-	blockChainFactories["sin"] = sin.NewsinRPC
+	BlockChainFactories["sin"] = sin.NewsinRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
