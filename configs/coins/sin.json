@@ -6,7 +6,7 @@
     "alias": "sin"
   },
   "ports": {
-    "backend_rpc": 4189,
+    "backend_rpc": 20971,
     "backend_message_queue": 38359,
     "blockbook_internal": 9332,
     "blockbook_public": 9432
