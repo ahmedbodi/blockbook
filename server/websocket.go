@@ -59,7 +59,6 @@ type WebsocketServer struct {
 	txCache                   *db.TxCache
 	chain                     bchain.BlockChain
 	chainParser               bchain.BlockChainParser
-	mempool                   bchain.Mempool
 	metrics                   *common.Metrics
 	is                        *common.InternalState
 	api                       *api.Worker
@@ -71,8 +70,8 @@ type WebsocketServer struct {
 }
 
 // NewWebsocketServer creates new websocket interface to blockbook and returns its handle
-func NewWebsocketServer(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState) (*WebsocketServer, error) {
-	api, err := api.NewWorker(db, chain, mempool, txCache, is)
+func NewWebsocketServer(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState) (*WebsocketServer, error) {
+	api, err := api.NewWorker(db, chain, txCache, is)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +89,6 @@ func NewWebsocketServer(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.
 		txCache:               txCache,
 		chain:                 chain,
 		chainParser:           chain.GetChainParser(),
-		mempool:               mempool,
 		metrics:               metrics,
 		is:                    is,
 		api:                   api,
@@ -259,16 +257,6 @@ var requestHandlers = map[string]func(*WebsocketServer, *websocketChannel, *webs
 		}
 		return
 	},
-	"getTransactionSpecific": func(s *WebsocketServer, c *websocketChannel, req *websocketReq) (rv interface{}, err error) {
-		r := struct {
-			Txid string `json:"txid"`
-		}{}
-		err = json.Unmarshal(req.Params, &r)
-		if err == nil {
-			rv, err = s.getTransactionSpecific(r.Txid)
-		}
-		return
-	},
 	"estimateFee": func(s *WebsocketServer, c *websocketChannel, req *websocketReq) (rv interface{}, err error) {
 		return s.estimateFee(c, req.Params)
 	},
@@ -300,18 +288,6 @@ var requestHandlers = map[string]func(*WebsocketServer, *websocketChannel, *webs
 	},
 }
 
-func sendResponse(c *websocketChannel, req *websocketReq, data interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			glog.Error("Client ", c.id, ", onRequest ", req.Method, " recovered from panic: ", r)
-		}
-	}()
-	c.out <- &websocketRes{
-		ID:   req.ID,
-		Data: data,
-	}
-}
-
 func (s *WebsocketServer) onRequest(c *websocketChannel, req *websocketReq) {
 	var err error
 	var data interface{}
@@ -325,7 +301,10 @@ func (s *WebsocketServer) onRequest(c *websocketChannel, req *websocketReq) {
 		}
 		// nil data means no response
 		if data != nil {
-			sendResponse(c, req, data)
+			c.out <- &websocketRes{
+				ID:   req.ID,
+				Data: data,
+			}
 		}
 	}()
 	t := time.Now()
@@ -338,10 +317,10 @@ func (s *WebsocketServer) onRequest(c *websocketChannel, req *websocketReq) {
 	}
 	if err == nil {
 		glog.V(1).Info("Client ", c.id, " onRequest ", req.Method, " success")
-		s.metrics.WebsocketRequests.With(common.Labels{"method": req.Method, "status": "success"}).Inc()
+		s.metrics.SocketIORequests.With(common.Labels{"method": req.Method, "status": "success"}).Inc()
 	} else {
-		glog.Error("Client ", c.id, " onMessage ", req.Method, ": ", errors.ErrorStack(err), ", data ", string(req.Params))
-		s.metrics.WebsocketRequests.With(common.Labels{"method": req.Method, "status": "failure"}).Inc()
+		glog.Error("Client ", c.id, " onMessage ", req.Method, ": ", errors.ErrorStack(err))
+		s.metrics.SocketIORequests.With(common.Labels{"method": req.Method, "status": err.Error()}).Inc()
 		e := resultError{}
 		e.Error.Message = err.Error()
 		data = e
@@ -351,13 +330,11 @@ func (s *WebsocketServer) onRequest(c *websocketChannel, req *websocketReq) {
 type accountInfoReq struct {
 	Descriptor     string `json:"descriptor"`
 	Details        string `json:"details"`
-	Tokens         string `json:"tokens"`
 	PageSize       int    `json:"pageSize"`
 	Page           int    `json:"page"`
 	FromHeight     int    `json:"from"`
 	ToHeight       int    `json:"to"`
 	ContractFilter string `json:"contractFilter"`
-	Gap            int    `json:"gap"`
 }
 
 func unmarshalGetAccountInfoRequest(params []byte) (*accountInfoReq, error) {
@@ -370,59 +347,31 @@ func unmarshalGetAccountInfoRequest(params []byte) (*accountInfoReq, error) {
 }
 
 func (s *WebsocketServer) getAccountInfo(req *accountInfoReq) (res *api.Address, err error) {
-	var opt api.AccountDetails
+	var opt api.GetAddressOption
 	switch req.Details {
-	case "tokens":
-		opt = api.AccountDetailsTokens
-	case "tokenBalances":
-		opt = api.AccountDetailsTokenBalances
+	case "balance":
+		opt = api.Balance
 	case "txids":
-		opt = api.AccountDetailsTxidHistory
+		opt = api.TxidHistory
 	case "txs":
-		opt = api.AccountDetailsTxHistory
+		opt = api.TxHistory
 	default:
-		opt = api.AccountDetailsBasic
+		opt = api.Basic
 	}
-	var tokensToReturn api.TokensToReturn
-	switch req.Tokens {
-	case "used":
-		tokensToReturn = api.TokensToReturnUsed
-	case "nonzero":
-		tokensToReturn = api.TokensToReturnNonzeroBalance
-	default:
-		tokensToReturn = api.TokensToReturnDerived
-	}
-	filter := api.AddressFilter{
-		FromHeight:     uint32(req.FromHeight),
-		ToHeight:       uint32(req.ToHeight),
-		Contract:       req.ContractFilter,
-		Vout:           api.AddressFilterVoutOff,
-		TokensToReturn: tokensToReturn,
-	}
-	if req.PageSize == 0 {
-		req.PageSize = txsOnPage
-	}
-	a, err := s.api.GetXpubAddress(req.Descriptor, req.Page, req.PageSize, opt, &filter, req.Gap)
-	if err != nil {
-		return s.api.GetAddress(req.Descriptor, req.Page, req.PageSize, opt, &filter)
-	}
-	return a, nil
+	return s.api.GetAddress(req.Descriptor, req.Page, req.PageSize, opt, &api.AddressFilter{
+		FromHeight: uint32(req.FromHeight),
+		ToHeight:   uint32(req.ToHeight),
+		Contract:   req.ContractFilter,
+		Vout:       api.AddressFilterVoutOff,
+	})
 }
 
 func (s *WebsocketServer) getAccountUtxo(descriptor string) (interface{}, error) {
-	utxo, err := s.api.GetXpubUtxo(descriptor, false, 0)
-	if err != nil {
-		return s.api.GetAddressUtxo(descriptor, false)
-	}
-	return utxo, nil
+	return s.api.GetAddressUtxo(descriptor, false)
 }
 
 func (s *WebsocketServer) getTransaction(txid string) (interface{}, error) {
 	return s.api.GetTransaction(txid, false, false)
-}
-
-func (s *WebsocketServer) getTransactionSpecific(txid string) (interface{}, error) {
-	return s.chain.GetTransactionSpecific(&bchain.Tx{Txid: txid})
 }
 
 func (s *WebsocketServer) getInfo() (interface{}, error) {
@@ -436,9 +385,9 @@ func (s *WebsocketServer) getInfo() (interface{}, error) {
 		Shortcut   string `json:"shortcut"`
 		Decimals   int    `json:"decimals"`
 		Version    string `json:"version"`
-		BestHeight int    `json:"bestHeight"`
-		BestHash   string `json:"bestHash"`
-		Block0Hash string `json:"block0Hash"`
+		BestHeight int    `json:"bestheight"`
+		BestHash   string `json:"besthash"`
+		Block0Hash string `json:"block0hash"`
 		Testnet    bool   `json:"testnet"`
 	}
 	return &info{

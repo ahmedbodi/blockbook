@@ -1,5 +1,5 @@
 {{define "main" -}}
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
 LOGS={{.Env.BlockbookInstallPath}}/{{.Coin.Alias}}/logs

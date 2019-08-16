@@ -31,11 +31,10 @@ func NewDigiByteRPC(config json.RawMessage, pushHandler func(bchain.Notification
 
 // Initialize initializes DigiByteRPC instance.
 func (b *DigiByteRPC) Initialize() error {
-	ci, err := b.GetChainInfo()
+	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)

@@ -5,35 +5,27 @@ import (
 	"blockbook/common"
 	"blockbook/db"
 	"encoding/json"
-	"errors"
 	"math/big"
 	"time"
 )
 
-const maxUint32 = ^uint32(0)
 const maxInt = int(^uint(0) >> 1)
-const maxInt64 = int64(^uint64(0) >> 1)
 
-// AccountDetails specifies what data returns GetAddress and GetXpub calls
-type AccountDetails int
+// GetAddressOption specifies what data returns GetAddress api call
+type GetAddressOption int
 
 const (
-	// AccountDetailsBasic - only that address is indexed and some basic info
-	AccountDetailsBasic AccountDetails = iota
-	// AccountDetailsTokens - basic info + tokens
-	AccountDetailsTokens
-	// AccountDetailsTokenBalances - basic info + token with balance
-	AccountDetailsTokenBalances
-	// AccountDetailsTxidHistory - basic + token balances + txids, subject to paging
-	AccountDetailsTxidHistory
-	// AccountDetailsTxHistoryLight - basic + tokens + easily obtained tx data (not requiring requests to backend), subject to paging
-	AccountDetailsTxHistoryLight
-	// AccountDetailsTxHistory - basic + tokens + full tx data, subject to paging
-	AccountDetailsTxHistory
+	// Basic - only that address is indexed and some basic info
+	Basic GetAddressOption = iota
+	// Balance - only balances
+	Balance
+	// TxidHistory - balances and txids, subject to paging
+	TxidHistory
+	// TxHistoryLight - balances and easily obtained tx data (not requiring request to backend), subject to paging
+	TxHistoryLight
+	// TxHistory - balances and full tx data, subject to paging
+	TxHistory
 )
-
-// ErrUnsupportedXpub is returned when coin type does not support xpub address derivation or provided string is not an xpub
-var ErrUnsupportedXpub = errors.New("XPUB not supported")
 
 // APIError extends error by information if the error details should be returned to the end user
 type APIError struct {
@@ -55,11 +47,6 @@ func NewAPIError(s string, public bool) error {
 
 // Amount is datatype holding amounts
 type Amount big.Int
-
-// IsZeroBigInt if big int has zero value
-func IsZeroBigInt(b *big.Int) bool {
-	return len(b.Bits()) == 0
-}
 
 // MarshalJSON Amount serialization
 func (a *Amount) MarshalJSON() (out []byte, err error) {
@@ -101,17 +88,17 @@ func (a *Amount) AsInt64() int64 {
 
 // Vin contains information about single transaction input
 type Vin struct {
-	Txid      string                   `json:"txid,omitempty"`
-	Vout      uint32                   `json:"vout,omitempty"`
-	Sequence  int64                    `json:"sequence,omitempty"`
-	N         int                      `json:"n"`
-	AddrDesc  bchain.AddressDescriptor `json:"-"`
-	Addresses []string                 `json:"addresses,omitempty"`
-	IsAddress bool                     `json:"isAddress"`
-	ValueSat  *Amount                  `json:"value,omitempty"`
-	Hex       string                   `json:"hex,omitempty"`
-	Asm       string                   `json:"asm,omitempty"`
-	Coinbase  string                   `json:"coinbase,omitempty"`
+	Txid       string                   `json:"txid,omitempty"`
+	Vout       uint32                   `json:"vout,omitempty"`
+	Sequence   int64                    `json:"sequence,omitempty"`
+	N          int                      `json:"n"`
+	AddrDesc   bchain.AddressDescriptor `json:"-"`
+	Addresses  []string                 `json:"addresses,omitempty"`
+	Searchable bool                     `json:"-"`
+	ValueSat   *Amount                  `json:"value,omitempty"`
+	Hex        string                   `json:"hex,omitempty"`
+	Asm        string                   `json:"asm,omitempty"`
+	Coinbase   string                   `json:"coinbase,omitempty"`
 }
 
 // Vout contains information about single transaction output
@@ -126,7 +113,7 @@ type Vout struct {
 	Asm         string                   `json:"asm,omitempty"`
 	AddrDesc    bchain.AddressDescriptor `json:"-"`
 	Addresses   []string                 `json:"addresses"`
-	IsAddress   bool                     `json:"isAddress"`
+	Searchable  bool                     `json:"-"`
 	Type        string                   `json:"type,omitempty"`
 }
 
@@ -136,22 +123,16 @@ type TokenType string
 // ERC20TokenType is Ethereum ERC20 token
 const ERC20TokenType TokenType = "ERC20"
 
-// XPUBAddressTokenType is address derived from xpub
-const XPUBAddressTokenType TokenType = "XPUBAddress"
-
 // Token contains info about tokens held by an address
 type Token struct {
-	Type             TokenType `json:"type"`
-	Name             string    `json:"name"`
-	Path             string    `json:"path,omitempty"`
-	Contract         string    `json:"contract,omitempty"`
-	Transfers        int       `json:"transfers"`
-	Symbol           string    `json:"symbol,omitempty"`
-	Decimals         int       `json:"decimals,omitempty"`
-	BalanceSat       *Amount   `json:"balance,omitempty"`
-	TotalReceivedSat *Amount   `json:"totalReceived,omitempty"`
-	TotalSentSat     *Amount   `json:"totalSent,omitempty"`
-	ContractIndex    string    `json:"-"`
+	Type          TokenType `json:"type"`
+	Contract      string    `json:"contract"`
+	Transfers     int       `json:"transfers"`
+	Name          string    `json:"name"`
+	Symbol        string    `json:"symbol"`
+	Decimals      int       `json:"decimals"`
+	BalanceSat    *Amount   `json:"balance,omitempty"`
+	ContractIndex string    `json:"-"`
 }
 
 // TokenTransfer contains info about a token transfer done in a transaction
@@ -170,22 +151,22 @@ type TokenTransfer struct {
 type EthereumSpecific struct {
 	Status   int      `json:"status"` // 1 OK, 0 Fail, -1 pending
 	Nonce    uint64   `json:"nonce"`
-	GasLimit *big.Int `json:"gasLimit"`
-	GasUsed  *big.Int `json:"gasUsed"`
-	GasPrice *Amount  `json:"gasPrice"`
+	GasLimit *big.Int `json:"gaslimit"`
+	GasUsed  *big.Int `json:"gasused"`
+	GasPrice *Amount  `json:"gasprice"`
 }
 
 // Tx holds information about a transaction
 type Tx struct {
 	Txid             string            `json:"txid"`
 	Version          int32             `json:"version,omitempty"`
-	Locktime         uint32            `json:"lockTime,omitempty"`
+	Locktime         uint32            `json:"locktime,omitempty"`
 	Vin              []Vin             `json:"vin"`
 	Vout             []Vout            `json:"vout"`
-	Blockhash        string            `json:"blockHash,omitempty"`
-	Blockheight      int               `json:"blockHeight"`
+	Blockhash        string            `json:"blockhash,omitempty"`
+	Blockheight      int               `json:"blockheight"`
 	Confirmations    uint32            `json:"confirmations"`
-	Blocktime        int64             `json:"blockTime"`
+	Blocktime        int64             `json:"blocktime"`
 	Size             int               `json:"size,omitempty"`
 	ValueOutSat      *Amount           `json:"value"`
 	ValueInSat       *Amount           `json:"valueIn,omitempty"`
@@ -193,8 +174,8 @@ type Tx struct {
 	Hex              string            `json:"hex,omitempty"`
 	CoinSpecificData interface{}       `json:"-"`
 	CoinSpecificJSON json.RawMessage   `json:"-"`
-	TokenTransfers   []TokenTransfer   `json:"tokenTransfers,omitempty"`
-	EthereumSpecific *EthereumSpecific `json:"ethereumSpecific,omitempty"`
+	TokenTransfers   []TokenTransfer   `json:"tokentransfers,omitempty"`
+	EthereumSpecific *EthereumSpecific `json:"ethereumspecific,omitempty"`
 }
 
 // Paging contains information about paging for address, blocks and block
@@ -204,9 +185,6 @@ type Paging struct {
 	ItemsOnPage int `json:"itemsOnPage,omitempty"`
 }
 
-// TokensToReturn specifies what tokens are returned by GetAddress and GetXpubAddress
-type TokensToReturn int
-
 const (
 	// AddressFilterVoutOff disables filtering of transactions by vout
 	AddressFilterVoutOff = -1
@@ -214,24 +192,14 @@ const (
 	AddressFilterVoutInputs = -2
 	// AddressFilterVoutOutputs specifies that only txs where the address is as output are returned
 	AddressFilterVoutOutputs = -3
-
-	// TokensToReturnNonzeroBalance - return only tokens with nonzero balance
-	TokensToReturnNonzeroBalance TokensToReturn = 0
-	// TokensToReturnUsed - return tokens with some transfers (even if they have zero balance now)
-	TokensToReturnUsed TokensToReturn = 1
-	// TokensToReturnDerived - return all derived tokens
-	TokensToReturnDerived TokensToReturn = 2
 )
 
 // AddressFilter is used to filter data returned from GetAddress api method
 type AddressFilter struct {
-	Vout           int
-	Contract       string
-	FromHeight     uint32
-	ToHeight       uint32
-	TokensToReturn TokensToReturn
-	// OnlyConfirmed set to true will ignore mempool transactions; mempool is also ignored if FromHeight/ToHeight filter is specified
-	OnlyConfirmed bool
+	Vout       int
+	Contract   string
+	FromHeight uint32
+	ToHeight   uint32
 }
 
 // Address holds information about address and its transactions
@@ -244,46 +212,22 @@ type Address struct {
 	UnconfirmedBalanceSat *Amount               `json:"unconfirmedBalance"`
 	UnconfirmedTxs        int                   `json:"unconfirmedTxs"`
 	Txs                   int                   `json:"txs"`
-	NonTokenTxs           int                   `json:"nonTokenTxs,omitempty"`
+	NonTokenTxs           int                   `json:"nontokenTxs,omitempty"`
 	Transactions          []*Tx                 `json:"transactions,omitempty"`
 	Txids                 []string              `json:"txids,omitempty"`
 	Nonce                 string                `json:"nonce,omitempty"`
-	UsedTokens            int                   `json:"usedTokens,omitempty"`
 	Tokens                []Token               `json:"tokens,omitempty"`
-	Erc20Contract         *bchain.Erc20Contract `json:"erc20Contract,omitempty"`
-	// helpers for explorer
-	Filter        string              `json:"-"`
-	XPubAddresses map[string]struct{} `json:"-"`
+	Erc20Contract         *bchain.Erc20Contract `json:"erc20contract,omitempty"`
+	Filter                string                `json:"-"`
 }
 
-// Utxo is one unspent transaction output
-type Utxo struct {
+// AddressUtxo holds information about address and its transactions
+type AddressUtxo struct {
 	Txid          string  `json:"txid"`
 	Vout          int32   `json:"vout"`
 	AmountSat     *Amount `json:"value"`
 	Height        int     `json:"height,omitempty"`
 	Confirmations int     `json:"confirmations"`
-	Address       string  `json:"address,omitempty"`
-	Path          string  `json:"path,omitempty"`
-	Locktime      uint32  `json:"lockTime,omitempty"`
-}
-
-// Utxos is array of Utxo
-type Utxos []Utxo
-
-func (a Utxos) Len() int      { return len(a) }
-func (a Utxos) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a Utxos) Less(i, j int) bool {
-	// sort in reverse order, unconfirmed (height==0) utxos on top
-	hi := a[i].Height
-	hj := a[j].Height
-	if hi == 0 {
-		hi = maxInt
-	}
-	if hj == 0 {
-		hj = maxInt
-	}
-	return hi >= hj
 }
 
 // Blocks is list of blocks with paging information
@@ -292,28 +236,11 @@ type Blocks struct {
 	Blocks []db.BlockInfo `json:"blocks"`
 }
 
-// BlockInfo contains extended block header data and a list of block txids
-type BlockInfo struct {
-	Hash          string      `json:"hash"`
-	Prev          string      `json:"previousBlockHash,omitempty"`
-	Next          string      `json:"nextBlockHash,omitempty"`
-	Height        uint32      `json:"height"`
-	Confirmations int         `json:"confirmations"`
-	Size          int         `json:"size"`
-	Time          int64       `json:"time,omitempty"`
-	Version       json.Number `json:"version"`
-	MerkleRoot    string      `json:"merkleRoot"`
-	Nonce         string      `json:"nonce"`
-	Bits          string      `json:"bits"`
-	Difficulty    string      `json:"difficulty"`
-	Txids         []string    `json:"tx,omitempty"`
-}
-
 // Block contains information about block
 type Block struct {
 	Paging
-	BlockInfo
-	TxCount      int   `json:"txCount"`
+	bchain.BlockInfo
+	TxCount      int   `json:"TxCount"`
 	Transactions []*Tx `json:"txs,omitempty"`
 }
 
@@ -322,10 +249,10 @@ type BlockbookInfo struct {
 	Coin              string                       `json:"coin"`
 	Host              string                       `json:"host"`
 	Version           string                       `json:"version"`
-	GitCommit         string                       `json:"gitCommit"`
-	BuildTime         string                       `json:"buildTime"`
+	GitCommit         string                       `json:"gitcommit"`
+	BuildTime         string                       `json:"buildtime"`
 	SyncMode          bool                         `json:"syncMode"`
-	InitialSync       bool                         `json:"initialSync"`
+	InitialSync       bool                         `json:"initialsync"`
 	InSync            bool                         `json:"inSync"`
 	BestHeight        uint32                       `json:"bestHeight"`
 	LastBlockTime     time.Time                    `json:"lastBlockTime"`
@@ -339,37 +266,8 @@ type BlockbookInfo struct {
 	About             string                       `json:"about"`
 }
 
-// BackendInfo is used to get information about blockchain
-type BackendInfo struct {
-	BackendError    string  `json:"error,omitempty"`
-	Chain           string  `json:"chain,omitempty"`
-	Blocks          int     `json:"blocks,omitempty"`
-	Headers         int     `json:"headers,omitempty"`
-	BestBlockHash   string  `json:"bestBlockHash,omitempty"`
-	Difficulty      string  `json:"difficulty,omitempty"`
-	SizeOnDisk      int64   `json:"sizeOnDisk,omitempty"`
-	Version         string  `json:"version,omitempty"`
-	Subversion      string  `json:"subversion,omitempty"`
-	ProtocolVersion string  `json:"protocolVersion,omitempty"`
-	Timeoffset      float64 `json:"timeOffset,omitempty"`
-	Warnings        string  `json:"warnings,omitempty"`
-}
-
 // SystemInfo contains information about the running blockbook and backend instance
 type SystemInfo struct {
-	Blockbook *BlockbookInfo `json:"blockbook"`
-	Backend   *BackendInfo   `json:"backend"`
-}
-
-// MempoolTxid contains information about a transaction in mempool
-type MempoolTxid struct {
-	Time int64  `json:"time"`
-	Txid string `json:"txid"`
-}
-
-// MempoolTxids contains a list of mempool txids with paging information
-type MempoolTxids struct {
-	Paging
-	Mempool     []MempoolTxid `json:"mempool"`
-	MempoolSize int           `json:"mempoolSize"`
+	Blockbook *BlockbookInfo    `json:"blockbook"`
+	Backend   *bchain.ChainInfo `json:"backend"`
 }

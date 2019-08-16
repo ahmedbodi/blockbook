@@ -31,11 +31,10 @@ func NewGameCreditsRPC(config json.RawMessage, pushHandler func(bchain.Notificat
 
 // Initialize initializes GameCreditsRPC instance.
 func (b *GameCreditsRPC) Initialize() error {
-	ci, err := b.GetChainInfo()
+	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)

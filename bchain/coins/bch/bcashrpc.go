@@ -27,18 +27,16 @@ func NewBCashRPC(config json.RawMessage, pushHandler func(bchain.NotificationTyp
 	s := &BCashRPC{
 		b.(*btc.BitcoinRPC),
 	}
-	s.ChainConfig.SupportsEstimateSmartFee = false
 
 	return s, nil
 }
 
 // Initialize initializes BCashRPC instance.
 func (b *BCashRPC) Initialize() error {
-	ci, err := b.GetChainInfo()
+	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	params := GetChainParams(chainName)
 
@@ -159,27 +157,14 @@ func (b *BCashRPC) GetBlockFull(hash string) (*bchain.Block, error) {
 	return nil, errors.New("Not implemented")
 }
 
-func isErrBlockNotFound(err *bchain.RPCError) bool {
-	return err.Message == "Block not found" ||
-		err.Message == "Block height out of range"
-}
+// EstimateSmartFee returns fee estimation.
+func (b *BCashRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, error) {
+	glog.V(1).Info("rpc: estimatesmartfee ", blocks)
 
-// EstimateFee returns fee estimation
-func (b *BCashRPC) EstimateFee(blocks int) (big.Int, error) {
-	//  from version BitcoinABC version 0.19.1 EstimateFee does not support parameter Blocks
-	if b.ChainConfig.CoinShortcut == "BCHSV" {
-		return b.BitcoinRPC.EstimateFee(blocks)
-	}
-
-	glog.V(1).Info("rpc: estimatefee ", blocks)
-
-	res := btc.ResEstimateFee{}
-	req := struct {
-		Method string `json:"method"`
-	}{
-		Method: "estimatefee",
-	}
-
+	res := btc.ResEstimateSmartFee{}
+	req := cmdEstimateSmartFee{Method: "estimatesmartfee"}
+	req.Params.Blocks = blocks
+	// conservative param is omitted
 	err := b.Call(&req, &res)
 
 	var r big.Int
@@ -189,15 +174,14 @@ func (b *BCashRPC) EstimateFee(blocks int) (big.Int, error) {
 	if res.Error != nil {
 		return r, res.Error
 	}
-	r, err = b.Parser.AmountToBigInt(res.Result)
+	r, err = b.Parser.AmountToBigInt(res.Result.Feerate)
 	if err != nil {
 		return r, err
 	}
 	return r, nil
 }
 
-// EstimateSmartFee returns fee estimation
-func (b *BCashRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, error) {
-	// EstimateSmartFee is not supported by bcash
-	return b.EstimateFee(blocks)
+func isErrBlockNotFound(err *bchain.RPCError) bool {
+	return err.Message == "Block not found" ||
+		err.Message == "Block height out of range"
 }

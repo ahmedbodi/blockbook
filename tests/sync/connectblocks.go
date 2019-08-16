@@ -25,8 +25,10 @@ func testConnectBlocks(t *testing.T, h *TestHandler) {
 					close(ch)
 				}
 			}, true)
-			if err != nil && err != db.ErrOperationInterrupted {
-				t.Fatal(err)
+			if err != nil {
+				if !strings.HasPrefix(err.Error(), "connectBlocks interrupted at height") {
+					t.Fatal(err)
+				}
 			}
 
 			height, _, err := d.GetBestBlock()

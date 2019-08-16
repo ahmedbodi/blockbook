@@ -8,12 +8,10 @@ import (
 )
 
 const (
-	// MainnetMagic is mainnet network constant
 	MainnetMagic wire.BitcoinNet = 0xdab6c3fa
 )
 
 var (
-	// MainNetParams are parser parameters for mainnet
 	MainNetParams chaincfg.Params
 )
 

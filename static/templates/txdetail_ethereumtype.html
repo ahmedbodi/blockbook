@@ -1,26 +1,28 @@
-{{define "txdetail"}}{{$cs := .CoinShortcut}}{{$addr := .AddrStr}}{{$tx := .Tx}}{{$data := .}}
+{{define "txdetail"}}{{$cs := .CoinShortcut}}{{$addr := .AddrStr}}{{$tx := .Tx}}
 <div class="alert alert-data"{{if eq $tx.EthereumSpecific.Status 0}} style="background-color: #faf2ee;"{{end}}>
     <div class="row line-bot">
         <div class="col-xs-7 col-md-8 ellipsis">
             <a href="/tx/{{$tx.Txid}}">{{$tx.Txid}}</a>
             {{if eq $tx.EthereumSpecific.Status 1}}<span class="text-success"> ✔</span>{{end}}{{if eq $tx.EthereumSpecific.Status 0}}<span class="text-danger"> ✘</span>{{end}}
         </div>
-        {{- if $tx.Blocktime}}<div class="col-xs-5 col-md-4 text-muted text-right">{{if $tx.Confirmations}}mined{{else}}first seen{{end}} {{formatUnixTime $tx.Blocktime}}</div>{{end -}}
+        {{- if $tx.Confirmations -}}
+        <div class="col-xs-5 col-md-4 text-muted text-right">mined {{formatUnixTime $tx.Blocktime}}</div>
+        {{- end -}}
     </div>
     <div class="row line-mid">
         <div class="col-md-4">
-            <div class="row tx-in">
+            <div class="row">
                 <table class="table data-table">
                     <tbody>
                         {{- range $vin := $tx.Vin -}}
-                        <tr{{if isOwnAddresses $data $vin.Addresses}} class="tx-own"{{end}}>
+                        <tr>
                             <td>
                                 {{- range $a := $vin.Addresses -}}
-                                <span class="ellipsis tx-addr">
-                                    {{if and (ne $a $addr) $vin.IsAddress}}<a href="/address/{{$a}}">{{$a}}</a>{{else}}{{$a}}{{end}}
+                                <span class="ellipsis float-left">
+                                    {{if and (ne $a $addr) $vin.Searchable}}<a href="/address/{{$a}}">{{$a}}</a>{{else}}{{$a}}{{end}}
                                 </span>
                                 {{- else -}}
-                                <span class="tx-addr">Unparsed address</span>
+                                <span class="float-left">Unparsed address</span>
                                 {{- end -}}
                             </td>
                         </tr>
@@ -39,18 +41,18 @@
             </svg>
         </div>
         <div class="col-md-4">
-            <div class="row tx-out">
+            <div class="row">
                 <table class="table data-table">
                     <tbody>
                         {{- range $vout := $tx.Vout -}}
-                        <tr{{if isOwnAddresses $data $vout.Addresses}} class="tx-own"{{end}}>
+                        <tr>
                             <td>
                                 {{- range $a := $vout.Addresses -}}
-                                <span class="ellipsis tx-addr">
-                                    {{- if and (ne $a $addr) $vout.IsAddress}}<a href="/address/{{$a}}">{{$a}}</a>{{else}}{{$a}}{{- end -}}
+                                <span class="ellipsis float-left">
+                                    {{- if and (ne $a $addr) $vout.Searchable}}<a href="/address/{{$a}}">{{$a}}</a>{{else}}{{$a}}{{- end -}}
                                 </span>
                                 {{- else -}}
-                                <span class="tx-addr">Unparsed address</span>
+                                <span class="float-left">Unparsed address</span>
                                 {{- end -}}
                             </td>
                         </tr>
@@ -74,12 +76,12 @@
     {{- range $erc20 := $tx.TokenTransfers -}}
     <div class="row" style="padding: 2px 15px;">
         <div class="col-md-4">
-            <div class="row tx-in">
+            <div class="row">
                 <table class="table data-table">
                     <tbody>
-                        <tr{{if isOwnAddress $data $erc20.From}} class="tx-own"{{end}}>
+                        <tr>
                             <td>
-                                <span class="ellipsis tx-addr">{{if ne $erc20.From $addr}}<a href="/address/{{$erc20.From}}">{{$erc20.From}}</a>{{else}}{{$erc20.From}}{{end}}</span>
+                                <span class="ellipsis float-left">{{if ne $erc20.From $addr}}<a href="/address/{{$erc20.From}}">{{$erc20.From}}</a>{{else}}{{$erc20.From}}{{end}}</span>
                             </td>
                         </tr>
                     </tbody>
@@ -92,12 +94,12 @@
             </svg>
         </div>
         <div class="col-md-4">
-            <div class="row tx-out">
+            <div class="row">
                 <table class="table data-table">
                     <tbody>
-                        <tr{{if isOwnAddress $data $erc20.To}} class="tx-own"{{end}}>
+                        <tr>
                             <td>
-                                <span class="ellipsis tx-addr">{{if ne $erc20.To $addr}}<a href="/address/{{$erc20.To}}">{{$erc20.To}}</a>{{else}}{{$erc20.To}}{{end}}</span>
+                                <span class="ellipsis float-left">{{if ne $erc20.To $addr}}<a href="/address/{{$erc20.To}}">{{$erc20.To}}</a>{{else}}{{$erc20.To}}{{end}}</span>
                             </td>
                         </tr>
                     </tbody>

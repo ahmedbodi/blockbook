@@ -30,7 +30,6 @@ var testMap = map[string]func(t *testing.T, th *TestHandler){
 
 type TestHandler struct {
 	Chain    bchain.BlockChain
-	Mempool  bchain.Mempool
 	TestData *TestData
 }
 
@@ -38,12 +37,11 @@ type TestData struct {
 	BlockHeight uint32                `json:"blockHeight"`
 	BlockHash   string                `json:"blockHash"`
 	BlockTime   int64                 `json:"blockTime"`
-	BlockSize   int                   `json:"blockSize"`
 	BlockTxs    []string              `json:"blockTxs"`
 	TxDetails   map[string]*bchain.Tx `json:"txDetails"`
 }
 
-func IntegrationTest(t *testing.T, coin string, chain bchain.BlockChain, mempool bchain.Mempool, testConfig json.RawMessage) {
+func IntegrationTest(t *testing.T, coin string, chain bchain.BlockChain, testConfig json.RawMessage) {
 	tests, err := getTests(testConfig)
 	if err != nil {
 		t.Fatalf("Failed loading of test list: %s", err)
@@ -55,11 +53,7 @@ func IntegrationTest(t *testing.T, coin string, chain bchain.BlockChain, mempool
 		t.Fatalf("Failed loading of test data: %s", err)
 	}
 
-	h := TestHandler{
-		Chain:    chain,
-		Mempool:  mempool,
-		TestData: td,
-	}
+	h := TestHandler{Chain: chain, TestData: td}
 
 	for _, test := range tests {
 		if f, found := testMap[test]; found {
@@ -200,7 +194,7 @@ func testMempoolSync(t *testing.T, h *TestHandler) {
 	for i := 0; i < 3; i++ {
 		txs := getMempool(t, h)
 
-		n, err := h.Mempool.Resync()
+		n, err := h.Chain.ResyncMempool(nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -222,7 +216,7 @@ func testMempoolSync(t *testing.T, h *TestHandler) {
 
 		for txid, addrs := range txid2addrs {
 			for _, a := range addrs {
-				got, err := h.Mempool.GetTransactions(a)
+				got, err := h.Chain.GetMempoolTransactions(a)
 				if err != nil {
 					t.Fatalf("address %q: %s", a, err)
 				}
@@ -320,7 +314,6 @@ func testGetBlockHeader(t *testing.T, h *TestHandler) {
 		Hash:   h.TestData.BlockHash,
 		Height: h.TestData.BlockHeight,
 		Time:   h.TestData.BlockTime,
-		Size:   h.TestData.BlockSize,
 	}
 
 	got, err := h.Chain.GetBlockHeader(h.TestData.BlockHash)
@@ -342,7 +335,7 @@ func testGetBlockHeader(t *testing.T, h *TestHandler) {
 }
 
 func getMempool(t *testing.T, h *TestHandler) []string {
-	txs, err := h.Chain.GetMempoolTransactions()
+	txs, err := h.Chain.GetMempool()
 	if err != nil {
 		t.Fatal(err)
 	}
