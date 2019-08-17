@@ -178,7 +178,7 @@ func (p *pesoParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
 			// missing: Asm,
 		}
 
-		txid := in.PreviousOutPoint.hash.String()
+		txid := in.PreviousOutPoint.Hash.String()
 
 		vin[i] = bchain.Vin{
 			Txid:      txid,
@@ -215,7 +215,7 @@ func (p *pesoParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
 		}
 	}
 	tx := bchain.Tx{
-		Txid:     t.Txhash().String(),
+		Txid:     t.TxHash().String(),
 		Version:  t.Version,
 		LockTime: t.LockTime,
 		Vin:      vin,
