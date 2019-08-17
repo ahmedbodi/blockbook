@@ -5,7 +5,7 @@ package tests
 import (
 	"blockbook/bchain"
 	"blockbook/bchain/coins"
-	build "blockbook/build/tools"
+	"blockbook/build/tools"
 	"blockbook/tests/rpc"
 	"blockbook/tests/sync"
 	"encoding/json"
@@ -19,12 +19,11 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/martinboehm/btcutil/chaincfg"
 )
 
-type TestFunc func(t *testing.T, coin string, chain bchain.BlockChain, mempool bchain.Mempool, testConfig json.RawMessage)
+type TestFunc func(t *testing.T, coin string, chain bchain.BlockChain, testConfig json.RawMessage)
 
 var integrationTests = map[string]TestFunc{
 	"rpc":  rpc.IntegrationTest,
@@ -77,54 +76,54 @@ func runTests(t *testing.T, coin string, cfg map[string]json.RawMessage) {
 	}
 	defer chaincfg.ResetParams()
 
-	bc, m, err := makeBlockChain(coin)
+	bc, err := makeBlockChain(coin)
 	if err != nil {
 		if err == notConnectedError {
 			t.Fatal(err)
 		}
-		t.Fatalf("Cannot init blockchain: %s", err)
+		t.Fatalf("Cannot make blockchain config: %s", err)
 	}
 
 	for test, c := range cfg {
 		if fn, found := integrationTests[test]; found {
-			t.Run(test, func(t *testing.T) { fn(t, coin, bc, m, c) })
+			t.Run(test, func(t *testing.T) { fn(t, coin, bc, c) })
 		} else {
 			t.Errorf("Test not found: %s", test)
 		}
 	}
 }
 
-func makeBlockChain(coin string) (bchain.BlockChain, bchain.Mempool, error) {
+func makeBlockChain(coin string) (bchain.BlockChain, error) {
 	c, err := build.LoadConfig("../configs", coin)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	outputDir, err := ioutil.TempDir("", "integration_test")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer os.RemoveAll(outputDir)
 
 	err = build.GeneratePackageDefinitions(c, "../build/templates", outputDir)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	b, err := ioutil.ReadFile(filepath.Join(outputDir, "blockbook", "blockchaincfg.json"))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var cfg json.RawMessage
 	err = json.Unmarshal(b, &cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	coinName, err := getName(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	return initBlockChain(coinName, cfg)
@@ -148,46 +147,29 @@ func getName(raw json.RawMessage) (string, error) {
 	}
 }
 
-func initBlockChain(coinName string, cfg json.RawMessage) (bchain.BlockChain, bchain.Mempool, error) {
+func initBlockChain(coinName string, cfg json.RawMessage) (bchain.BlockChain, error) {
 	factory, found := coins.BlockChainFactories[coinName]
 	if !found {
-		return nil, nil, fmt.Errorf("Factory function not found")
+		return nil, fmt.Errorf("Factory function not found")
 	}
 
-	chain, err := factory(cfg, func(_ bchain.NotificationType) {})
+	cli, err := factory(cfg, func(_ bchain.NotificationType) {})
 	if err != nil {
 		if isNetError(err) {
-			return nil, nil, notConnectedError
+			return nil, notConnectedError
 		}
-		return nil, nil, fmt.Errorf("Factory function failed: %s", err)
+		return nil, fmt.Errorf("Factory function failed: %s", err)
 	}
 
-	for i := 0; ; i++ {
-		err = chain.Initialize()
-		if err == nil {
-			break
-		}
+	err = cli.Initialize()
+	if err != nil {
 		if isNetError(err) {
-			return nil, nil, notConnectedError
+			return nil, notConnectedError
 		}
-		// wait max 5 minutes for backend to startup
-		if i > 5*60 {
-			return nil, nil, fmt.Errorf("BlockChain initialization failed: %s", err)
-		}
-		time.Sleep(time.Millisecond * 1000)
+		return nil, fmt.Errorf("BlockChain initialization failed: %s", err)
 	}
 
-	mempool, err := chain.CreateMempool(chain)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Mempool creation failed: %s", err)
-	}
-
-	err = chain.InitializeMempool(nil, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Mempool initialization failed: %s", err)
-	}
-
-	return chain, mempool, nil
+	return cli, nil
 }
 
 func isNetError(err error) bool {

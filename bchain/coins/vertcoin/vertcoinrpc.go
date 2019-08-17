@@ -31,11 +31,10 @@ func NewVertcoinRPC(config json.RawMessage, pushHandler func(bchain.Notification
 
 // Initialize initializes VertcoinRPC instance.
 func (b *VertcoinRPC) Initialize() error {
-	ci, err := b.GetChainInfo()
+	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)

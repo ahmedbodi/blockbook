@@ -31,11 +31,10 @@ func NewLiquidRPC(config json.RawMessage, pushHandler func(bchain.NotificationTy
 
 // Initialize initializes GameCreditsRPC instance.
 func (b *LiquidRPC) Initialize() error {
-	ci, err := b.GetChainInfo()
+	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)

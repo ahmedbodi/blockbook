@@ -7,14 +7,12 @@ import (
 	"github.com/martinboehm/btcutil/chaincfg"
 )
 
-// magic numbers
 const (
 	MainnetMagic wire.BitcoinNet = 0xdbb6c0fb
 	TestnetMagic wire.BitcoinNet = 0xf1c8d2fd
 	RegtestMagic wire.BitcoinNet = 0xdab5bffa
 )
 
-// chain parameters
 var (
 	MainNetParams chaincfg.Params
 	TestNetParams chaincfg.Params

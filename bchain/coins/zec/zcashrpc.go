@@ -9,12 +9,10 @@ import (
 	"github.com/juju/errors"
 )
 
-// ZCashRPC is an interface to JSON-RPC bitcoind service
 type ZCashRPC struct {
 	*btc.BitcoinRPC
 }
 
-// NewZCashRPC returns new ZCashRPC instance
 func NewZCashRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
@@ -28,13 +26,12 @@ func NewZCashRPC(config json.RawMessage, pushHandler func(bchain.NotificationTyp
 	return z, nil
 }
 
-// Initialize initializes ZCashRPC instance
+// Initialize initializes ZCashRPC instance.
 func (z *ZCashRPC) Initialize() error {
-	ci, err := z.GetChainInfo()
+	chainName, err := z.GetChainInfoAndInitializeMempool(z)
 	if err != nil {
 		return err
 	}
-	chainName := ci.Chain
 
 	params := GetChainParams(chainName)
 

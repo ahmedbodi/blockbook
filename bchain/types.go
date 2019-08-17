@@ -106,6 +106,19 @@ type BlockHeader struct {
 	Time          int64  `json:"time,omitempty"`
 }
 
+// Zerocoin denom supply
+type ZCdenoms struct {
+    Denom_1     json.Number   `json:"1"`
+    Denom_5     json.Number   `json:"5"`
+    Denom_10    json.Number   `json:"10"`
+    Denom_50    json.Number   `json:"50"`
+    Denom_100   json.Number   `json:"100"`
+    Denom_500   json.Number   `json:"500"`
+    Denom_1000  json.Number   `json:"1000"`
+    Denom_5000  json.Number   `json:"5000"`
+    Denom_TOT   json.Number   `json:"total"`
+}
+
 // BlockInfo contains extended block header data and a list of block txids
 type BlockInfo struct {
 	BlockHeader
@@ -115,6 +128,8 @@ type BlockInfo struct {
 	Bits       string      `json:"bits"`
 	Difficulty json.Number `json:"difficulty"`
 	Txids      []string    `json:"tx,omitempty"`
+    MoneySupply   json.Number `json:"moneysupply"`
+    ZerocoinSupply  ZCdenoms    `json:"zPIVsupply"`
 }
 
 // MempoolEntry is used to get data about mempool entry
@@ -148,6 +163,10 @@ type ChainInfo struct {
 	ProtocolVersion string  `json:"protocolversion"`
 	Timeoffset      float64 `json:"timeoffset"`
 	Warnings        string  `json:"warnings"`
+    MoneySupply   json.Number `json:"moneysupply"`
+    ZerocoinSupply  ZCdenoms    `json:"zPIVsupply"`
+    MasternodeCount int `json:"masternodecount"`
+    NextSuperBlock int `json:"masternodecount"`
 }
 
 // RPCError defines rpc error returned by backend
@@ -185,34 +204,16 @@ type Erc20Transfer struct {
 	Tokens   big.Int
 }
 
-// MempoolTxidEntry contains mempool txid with first seen time
-type MempoolTxidEntry struct {
-	Txid string
-	Time uint32
-}
-
-// MempoolTxidEntries is array of MempoolTxidEntry
-type MempoolTxidEntries []MempoolTxidEntry
-
 // OnNewBlockFunc is used to send notification about a new block
 type OnNewBlockFunc func(hash string, height uint32)
 
 // OnNewTxAddrFunc is used to send notification about a new transaction/address
 type OnNewTxAddrFunc func(tx *Tx, desc AddressDescriptor)
 
-// AddrDescForOutpointFunc defines function that returns address descriptorfor given outpoint or nil if outpoint not found
-type AddrDescForOutpointFunc func(outpoint Outpoint) AddressDescriptor
-
 // BlockChain defines common interface to block chain daemon
 type BlockChain interface {
 	// life-cycle methods
-	// initialize the block chain connector
 	Initialize() error
-	// create mempool but do not initialize it
-	CreateMempool(BlockChain) (Mempool, error)
-	// initialize mempool, create ZeroMQ (or other) subscription
-	InitializeMempool(AddrDescForOutpointFunc, OnNewTxAddrFunc) error
-	// shutdown mempool, ZeroMQ and block chain connections
 	Shutdown(ctx context.Context) error
 	// chain info
 	IsTestnet() bool
@@ -227,13 +228,17 @@ type BlockChain interface {
 	GetBlockHeader(hash string) (*BlockHeader, error)
 	GetBlock(hash string, height uint32) (*Block, error)
 	GetBlockInfo(hash string) (*BlockInfo, error)
-	GetMempoolTransactions() ([]string, error)
+	GetMempool() ([]string, error)
 	GetTransaction(txid string) (*Tx, error)
 	GetTransactionForMempool(txid string) (*Tx, error)
 	GetTransactionSpecific(tx *Tx) (json.RawMessage, error)
 	EstimateSmartFee(blocks int, conservative bool) (big.Int, error)
 	EstimateFee(blocks int) (big.Int, error)
 	SendRawTransaction(tx string) (string, error)
+	// mempool
+	ResyncMempool(onNewTxAddr OnNewTxAddrFunc) (int, error)
+	GetMempoolTransactions(address string) ([]Outpoint, error)
+	GetMempoolTransactionsForAddrDesc(addrDesc AddressDescriptor) ([]Outpoint, error)
 	GetMempoolEntry(txid string) (*MempoolEntry, error)
 	// parser
 	GetChainParser() BlockChainParser
@@ -243,6 +248,8 @@ type BlockChain interface {
 	EthereumTypeEstimateGas(params map[string]interface{}) (uint64, error)
 	EthereumTypeGetErc20ContractInfo(contractDesc AddressDescriptor) (*Erc20Contract, error)
 	EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
+    // PIVX specific
+    Findzcserial(serialHex string) (string, error)
 }
 
 // BlockChainParser defines common interface to parsing and conversions of block chain data
@@ -264,7 +271,6 @@ type BlockChainParser interface {
 	GetAddrDescFromAddress(address string) (AddressDescriptor, error)
 	GetAddressesFromAddrDesc(addrDesc AddressDescriptor) ([]string, bool, error)
 	GetScriptFromAddrDesc(addrDesc AddressDescriptor) ([]byte, error)
-	IsAddrDescIndexable(addrDesc AddressDescriptor) bool
 	// transactions
 	PackedTxidLen() int
 	PackTxid(txid string) ([]byte, error)
@@ -274,23 +280,11 @@ type BlockChainParser interface {
 	PackTx(tx *Tx, height uint32, blockTime int64) ([]byte, error)
 	UnpackTx(buf []byte) (*Tx, uint32, error)
 	GetAddrDescForUnknownInput(tx *Tx, input int) AddressDescriptor
+    GetValueSatForUnknownInput(tx *Tx, input int) *big.Int
 	// blocks
 	PackBlockHash(hash string) ([]byte, error)
 	UnpackBlockHash(buf []byte) (string, error)
 	ParseBlock(b []byte) (*Block, error)
-	// xpub
-	DerivationBasePath(xpub string) (string, error)
-	DeriveAddressDescriptors(xpub string, change uint32, indexes []uint32) ([]AddressDescriptor, error)
-	DeriveAddressDescriptorsFromTo(xpub string, change uint32, fromIndex uint32, toIndex uint32) ([]AddressDescriptor, error)
 	// EthereumType specific
 	EthereumTypeGetErc20FromTx(tx *Tx) ([]Erc20Transfer, error)
-}
-
-// Mempool defines common interface to mempool
-type Mempool interface {
-	Resync() (int, error)
-	GetTransactions(address string) ([]Outpoint, error)
-	GetAddrDescTransactions(addrDesc AddressDescriptor) ([]Outpoint, error)
-	GetAllEntries() MempoolTxidEntries
-	GetTransactionTime(txid string) uint32
 }

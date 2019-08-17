@@ -6,11 +6,9 @@ notes.txt
 debug*
 .vscode
 docker/blockbook
-build/pkg-defs
-build/blockbook
-build/ldb
-build/sst_dump
-build/*.deb
+build
+!build/templates
+!build/docker
 .bin-image
 .deb-image
-\.idea/
+/.project

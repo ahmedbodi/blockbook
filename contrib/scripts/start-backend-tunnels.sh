@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 if [ $# -ne 1 ]; then
     echo "Usage: $(basename $0) host" 1>&2

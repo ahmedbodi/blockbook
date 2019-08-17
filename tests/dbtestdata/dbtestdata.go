@@ -8,7 +8,6 @@ import (
 	"github.com/golang/glog"
 )
 
-// Txids, Xpubs and Addresses
 const (
 	TxidB1T1 = "00b2c06055e5e90e9c82bd4181fde310104391a7fa4f289b1704e5d90caa3840"
 	TxidB1T2 = "effd9ef509383d536b1c8af5bf434c8efbf521a4f2befd4022bbd68694b4ac75"
@@ -17,23 +16,18 @@ const (
 	TxidB2T3 = "05e2e48aeabdd9b75def7b48d756ba304713c2aba7b522bf9dbc893fc4231b07"
 	TxidB2T4 = "fdd824a780cbb718eeb766eb05d83fdefc793a27082cd5e67f856d69798cf7db"
 
-	Xpub = "upub5E1xjDmZ7Hhej6LPpS8duATdKXnRYui7bDYj6ehfFGzWDZtmCmQkZhc3Zb7kgRLtHWd16QFxyP86JKL3ShZEBFX88aciJ3xyocuyhZZ8g6q"
-
 	Addr1 = "mfcWp7DB6NuaZsExybTTXpVgWz559Np4Ti"  // 76a914010d39800f86122416e28f485029acf77507169288ac
 	Addr2 = "mtGXQvBowMkBpnhLckhxhbwYK44Gs9eEtz"  // 76a9148bdf0aa3c567aa5975c2e61321b8bebbe7293df688ac
 	Addr3 = "mv9uLThosiEnGRbVPS7Vhyw6VssbVRsiAw"  // 76a914a08eae93007f22668ab5e4a9c83c8cd1c325e3e088ac
-	Addr4 = "2MzmAKayJmja784jyHvRUW1bXPget1csRRG" // a91452724c5178682f70e0ba31c6ec0633755a3b41d987, xpub m/49'/1'/33'/0/0
+	Addr4 = "2Mz1CYoppGGsLNUGF2YDhTif6J661JitALS" // a9144a21db08fb6882cb152e1ff06780a430740f770487
 	Addr5 = "2NEVv9LJmAnY99W1pFoc5UJjVdypBqdnvu1" // a914e921fc4912a315078f370d959f2c4f7b6d2a683c87
 	Addr6 = "mzB8cYrfRwFRFAGTDzV8LkUQy5BQicxGhX"  // 76a914ccaaaf374e1b06cb83118453d102587b4273d09588ac
 	Addr7 = "mtR97eM2HPWVM6c8FGLGcukgaHHQv7THoL"  // 76a9148d802c045445df49613f6a70ddd2e48526f3701f88ac
-	Addr8 = "2N6utyMZfPNUb1Bk8oz7p2JqJrXkq83gegu" // a91495e9fbe306449c991d314afe3c3567d5bf78efd287, xpub m/49'/1'/33'/1/3
+	Addr8 = "mwwoKQE5Lb1G4picHSHDQKg8jw424PF9SC"  // 76a914b434eb0c1a3b7a02e8a29cc616e791ef1e0bf51f88ac
 	Addr9 = "mmJx9Y8ayz9h14yd9fgCW1bUKoEpkBAquP"  // 76a9143f8ba3fda3ba7b69f5818086e12223c6dd25e3c888ac
 	AddrA = "mzVznVsCHkVHX9UN8WPFASWUUHtxnNn4Jj"  // 76a914d03c0d863d189b23b061a95ad32940b65837609f88ac
-
-	TxidB2T1Output3OpReturn = "6a072020f1686f6a20"
 )
 
-// Amounts in satoshis
 var (
 	SatZero   = big.NewInt(0)
 	SatB1T1A1 = big.NewInt(100000000)
@@ -49,7 +43,6 @@ var (
 	SatB2T4AA = big.NewInt(1360030331)
 )
 
-// AddressToPubKeyHex is a utility conversion function
 func AddressToPubKeyHex(addr string, parser bchain.BlockChainParser) string {
 	if addr == "" {
 		return ""
@@ -61,7 +54,6 @@ func AddressToPubKeyHex(addr string, parser bchain.BlockChainParser) string {
 	return hex.EncodeToString(b)
 }
 
-// GetTestBitcoinTypeBlock1 returns block #1
 func GetTestBitcoinTypeBlock1(parser bchain.BlockChainParser) *bchain.Block {
 	return &bchain.Block{
 		BlockHeader: bchain.BlockHeader{
@@ -128,7 +120,6 @@ func GetTestBitcoinTypeBlock1(parser bchain.BlockChainParser) *bchain.Block {
 	}
 }
 
-// GetTestBitcoinTypeBlock2 returns block #2
 func GetTestBitcoinTypeBlock2(parser bchain.BlockChainParser) *bchain.Block {
 	return &bchain.Block{
 		BlockHeader: bchain.BlockHeader{
@@ -167,13 +158,6 @@ func GetTestBitcoinTypeBlock2(parser bchain.BlockChainParser) *bchain.Block {
 							Hex: AddressToPubKeyHex(Addr7, parser),
 						},
 						ValueSat: *SatB2T1A7,
-					},
-					{
-						N: 2,
-						ScriptPubKey: bchain.ScriptPubKey{
-							Hex: TxidB2T1Output3OpReturn, // OP_RETURN script
-						},
-						ValueSat: *SatZero,
 					},
 				},
 				Blocktime:     22549400000,

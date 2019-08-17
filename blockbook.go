@@ -15,7 +15,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -33,10 +32,6 @@ const debounceResyncMempoolMs = 1009
 
 // store internal state about once every minute
 const storeInternalStatePeriodMs = 59699
-
-// exit codes from the main function
-const exitCodeOK = 0
-const exitCodeFatal = 255
 
 var (
 	blockchain = flag.String("blockchaincfg", "", "path to blockchain RPC service configuration json file")
@@ -69,9 +64,8 @@ var (
 
 	noTxCache = flag.Bool("notxcache", false, "disable tx cache")
 
-	computeColumnStats  = flag.Bool("computedbstats", false, "compute column stats and exit")
-	computeFeeStatsFlag = flag.Bool("computefeestats", false, "compute fee stats for blocks in blockheight-blockuntil range and exit")
-	dbStatsPeriodHours  = flag.Int("dbstatsperiod", 24, "period of db stats collection in hours, 0 disables stats collection")
+	computeColumnStats = flag.Bool("computedbstats", false, "compute column stats and exit")
+	dbStatsPeriodHours = flag.Int("dbstatsperiod", 24, "period of db stats collection in hours, 0 disables stats collection")
 
 	// resync index at least each resyncIndexPeriodMs (could be more often if invoked by message from ZeroMQ)
 	resyncIndexPeriodMs = flag.Int("resyncindexperiod", 935093, "resync index period in milliseconds")
@@ -88,7 +82,6 @@ var (
 	chanSyncMempoolDone        = make(chan struct{})
 	chanStoreInternalStateDone = make(chan struct{})
 	chain                      bchain.BlockChain
-	mempool                    bchain.Mempool
 	index                      *db.RocksDB
 	txCache                    *db.TxCache
 	metrics                    *common.Metrics
@@ -105,19 +98,30 @@ func init() {
 	glog.CopyStandardLogTo("INFO")
 }
 
-func main() {
-	defer func() {
-		if e := recover(); e != nil {
-			glog.Error("main recovered from panic: ", e)
-			debug.PrintStack()
-			os.Exit(-1)
+func getBlockChainWithRetry(coin string, configfile string, pushHandler func(bchain.NotificationType), metrics *common.Metrics, seconds int) (bchain.BlockChain, error) {
+	var chain bchain.BlockChain
+	var err error
+	timer := time.NewTimer(time.Second)
+	for i := 0; ; i++ {
+		if chain, err = coins.NewBlockChain(coin, configfile, pushHandler, metrics); err != nil {
+			if i < seconds {
+				glog.Error("rpc: ", err, " Retrying...")
+				select {
+				case <-chanOsSignal:
+					return nil, errors.New("Interrupted")
+				case <-timer.C:
+					timer.Reset(time.Second)
+					continue
+				}
+			} else {
+				return nil, err
+			}
 		}
-	}()
-	os.Exit(mainWithExitCode())
+		return chain, nil
+	}
 }
 
-// allow deferred functions to run even in case of fatal error
-func mainWithExitCode() int {
+func main() {
 	flag.Parse()
 
 	defer glog.Flush()
@@ -137,65 +141,49 @@ func mainWithExitCode() int {
 
 	if *repair {
 		if err := db.RepairRocksDB(*dbPath); err != nil {
-			glog.Errorf("RepairRocksDB %s: %v", *dbPath, err)
-			return exitCodeFatal
+			glog.Fatalf("RepairRocksDB %s: %v", *dbPath, err)
 		}
-		return exitCodeOK
+		return
 	}
 
 	if *blockchain == "" {
-		glog.Error("Missing blockchaincfg configuration parameter")
-		return exitCodeFatal
+		glog.Fatal("Missing blockchaincfg configuration parameter")
 	}
 
 	coin, coinShortcut, coinLabel, err := coins.GetCoinNameFromConfig(*blockchain)
 	if err != nil {
-		glog.Error("config: ", err)
-		return exitCodeFatal
+		glog.Fatal("config: ", err)
 	}
 
 	// gspt.SetProcTitle("blockbook-" + normalizeName(coin))
 
 	metrics, err = common.GetMetrics(coin)
 	if err != nil {
-		glog.Error("metrics: ", err)
-		return exitCodeFatal
+		glog.Fatal("metrics: ", err)
 	}
 
-	if chain, mempool, err = getBlockChainWithRetry(coin, *blockchain, pushSynchronizationHandler, metrics, 120); err != nil {
-		glog.Error("rpc: ", err)
-		return exitCodeFatal
+	if chain, err = getBlockChainWithRetry(coin, *blockchain, pushSynchronizationHandler, metrics, 60); err != nil {
+		glog.Fatal("rpc: ", err)
 	}
 
 	index, err = db.NewRocksDB(*dbPath, *dbCache, *dbMaxOpenFiles, chain.GetChainParser(), metrics)
 	if err != nil {
-		glog.Error("rocksDB: ", err)
-		return exitCodeFatal
+		glog.Fatal("rocksDB: ", err)
 	}
 	defer index.Close()
 
 	internalState, err = newInternalState(coin, coinShortcut, coinLabel, index)
 	if err != nil {
 		glog.Error("internalState: ", err)
-		return exitCodeFatal
+		return
 	}
 	index.SetInternalState(internalState)
 	if internalState.DbState != common.DbStateClosed {
 		if internalState.DbState == common.DbStateInconsistent {
 			glog.Error("internalState: database is in inconsistent state and cannot be used")
-			return exitCodeFatal
+			return
 		}
 		glog.Warning("internalState: database was left in open state, possibly previous ungraceful shutdown")
-	}
-
-	if *computeFeeStatsFlag {
-		internalState.DbState = common.DbStateOpen
-		err = computeFeeStats(chanOsSignal, *blockFrom, *blockUntil, index, chain, txCache, internalState, metrics)
-		if err != nil && err != db.ErrOperationInterrupted {
-			glog.Error("computeFeeStats: ", err)
-			return exitCodeFatal
-		}
-		return exitCodeOK
 	}
 
 	if *computeColumnStats {
@@ -203,37 +191,53 @@ func mainWithExitCode() int {
 		err = index.ComputeInternalStateColumnStats(chanOsSignal)
 		if err != nil {
 			glog.Error("internalState: ", err)
-			return exitCodeFatal
 		}
 		glog.Info("DB size on disk: ", index.DatabaseSizeOnDisk(), ", DB size as computed: ", internalState.DBSizeTotal())
-		return exitCodeOK
+		return
 	}
 
 	syncWorker, err = db.NewSyncWorker(index, chain, *syncWorkers, *syncChunk, *blockFrom, *dryRun, chanOsSignal, metrics, internalState)
 	if err != nil {
-		glog.Errorf("NewSyncWorker %v", err)
-		return exitCodeFatal
+		glog.Fatalf("NewSyncWorker %v", err)
 	}
 
 	// set the DbState to open at this moment, after all important workers are initialized
 	internalState.DbState = common.DbStateOpen
 	err = index.StoreInternalState(internalState)
 	if err != nil {
-		glog.Error("internalState: ", err)
-		return exitCodeFatal
+		glog.Fatal("internalState: ", err)
 	}
 
 	if *rollbackHeight >= 0 {
-		err = performRollback()
+		bestHeight, bestHash, err := index.GetBestBlock()
 		if err != nil {
-			return exitCodeFatal
+			glog.Error("rollbackHeight: ", err)
+			return
 		}
-		return exitCodeOK
+		if uint32(*rollbackHeight) > bestHeight {
+			glog.Infof("nothing to rollback, rollbackHeight %d, bestHeight: %d", *rollbackHeight, bestHeight)
+		} else {
+			hashes := []string{bestHash}
+			for height := bestHeight - 1; height >= uint32(*rollbackHeight); height-- {
+				hash, err := index.GetBlockHash(height)
+				if err != nil {
+					glog.Error("rollbackHeight: ", err)
+					return
+				}
+				hashes = append(hashes, hash)
+			}
+			err = syncWorker.DisconnectBlocks(uint32(*rollbackHeight), bestHeight, hashes)
+			if err != nil {
+				glog.Error("rollbackHeight: ", err)
+				return
+			}
+		}
+		return
 	}
 
 	if txCache, err = db.NewTxCache(index, chain, metrics, internalState, !*noTxCache); err != nil {
 		glog.Error("txCache ", err)
-		return exitCodeFatal
+		return
 	}
 
 	// report BlockbookAppInfo metric, only log possible error
@@ -243,46 +247,58 @@ func mainWithExitCode() int {
 
 	var internalServer *server.InternalServer
 	if *internalBinding != "" {
-		internalServer, err = startInternalServer()
+		internalServer, err = server.NewInternalServer(*internalBinding, *certFiles, index, chain, txCache, internalState)
 		if err != nil {
-			glog.Error("internal server: ", err)
-			return exitCodeFatal
+			glog.Error("https: ", err)
+			return
 		}
+		go func() {
+			err = internalServer.Run()
+			if err != nil {
+				if err.Error() == "http: Server closed" {
+					glog.Info("internal server: closed")
+				} else {
+					glog.Error(err)
+					return
+				}
+			}
+		}()
 	}
 
 	var publicServer *server.PublicServer
 	if *publicBinding != "" {
-		publicServer, err = startPublicServer()
+		// start public server in limited functionality, extend it after sync is finished by calling ConnectFullPublicInterface
+		publicServer, err = server.NewPublicServer(*publicBinding, *certFiles, index, chain, txCache, *explorerURL, metrics, internalState, *debugMode)
 		if err != nil {
-			glog.Error("public server: ", err)
-			return exitCodeFatal
+			glog.Error("socketio: ", err)
+			return
 		}
+		go func() {
+			err = publicServer.Run()
+			if err != nil {
+				if err.Error() == "http: Server closed" {
+					glog.Info("public server: closed")
+				} else {
+					glog.Error(err)
+					return
+				}
+			}
+		}()
+		callbacksOnNewBlock = append(callbacksOnNewBlock, publicServer.OnNewBlock)
+		callbacksOnNewTxAddr = append(callbacksOnNewTxAddr, publicServer.OnNewTxAddr)
 	}
 
 	if *synchronize {
 		internalState.SyncMode = true
 		internalState.InitialSync = true
 		if err := syncWorker.ResyncIndex(nil, true); err != nil {
-			if err != db.ErrOperationInterrupted {
-				glog.Error("resyncIndex ", err)
-				return exitCodeFatal
-			}
-			return exitCodeOK
-		}
-		// initialize mempool after the initial sync is complete
-		var addrDescForOutpoint bchain.AddrDescForOutpointFunc
-		if chain.GetChainParser().GetChainType() == bchain.ChainBitcoinType {
-			addrDescForOutpoint = index.AddrDescForOutpoint
-		}
-		err = chain.InitializeMempool(addrDescForOutpoint, onNewTxAddr)
-		if err != nil {
-			glog.Error("initializeMempool ", err)
-			return exitCodeFatal
+			glog.Error("resyncIndex ", err)
+			return
 		}
 		var mempoolCount int
-		if mempoolCount, err = mempool.Resync(); err != nil {
+		if mempoolCount, err = chain.ResyncMempool(nil); err != nil {
 			glog.Error("resyncMempool ", err)
-			return exitCodeFatal
+			return
 		}
 		internalState.FinishedMempoolSync(mempoolCount)
 		go syncIndexLoop()
@@ -291,10 +307,8 @@ func mainWithExitCode() int {
 	}
 	go storeInternalStateLoop()
 
-	if publicServer != nil {
+	if *publicBinding != "" {
 		// start full public interface
-		callbacksOnNewBlock = append(callbacksOnNewBlock, publicServer.OnNewBlock)
-		callbacksOnNewTxAddr = append(callbacksOnNewTxAddr, publicServer.OnNewTxAddr)
 		publicServer.ConnectFullPublicInterface()
 	}
 
@@ -307,11 +321,8 @@ func mainWithExitCode() int {
 
 		if !*synchronize {
 			if err = syncWorker.ConnectBlocksParallel(height, until); err != nil {
-				if err != db.ErrOperationInterrupted {
-					glog.Error("connectBlocksParallel ", err)
-					return exitCodeFatal
-				}
-				return exitCodeOK
+				glog.Error("connectBlocksParallel ", err)
+				return
 			}
 		}
 	}
@@ -328,101 +339,10 @@ func mainWithExitCode() int {
 		<-chanSyncMempoolDone
 		<-chanStoreInternalStateDone
 	}
-	return exitCodeOK
-}
-
-func getBlockChainWithRetry(coin string, configfile string, pushHandler func(bchain.NotificationType), metrics *common.Metrics, seconds int) (bchain.BlockChain, bchain.Mempool, error) {
-	var chain bchain.BlockChain
-	var mempool bchain.Mempool
-	var err error
-	timer := time.NewTimer(time.Second)
-	for i := 0; ; i++ {
-		if chain, mempool, err = coins.NewBlockChain(coin, configfile, pushHandler, metrics); err != nil {
-			if i < seconds {
-				glog.Error("rpc: ", err, " Retrying...")
-				select {
-				case <-chanOsSignal:
-					return nil, nil, errors.New("Interrupted")
-				case <-timer.C:
-					timer.Reset(time.Second)
-					continue
-				}
-			} else {
-				return nil, nil, err
-			}
-		}
-		return chain, mempool, nil
-	}
-}
-
-func startInternalServer() (*server.InternalServer, error) {
-	internalServer, err := server.NewInternalServer(*internalBinding, *certFiles, index, chain, mempool, txCache, internalState)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		err = internalServer.Run()
-		if err != nil {
-			if err.Error() == "http: Server closed" {
-				glog.Info("internal server: closed")
-			} else {
-				glog.Error(err)
-				return
-			}
-		}
-	}()
-	return internalServer, nil
-}
-
-func startPublicServer() (*server.PublicServer, error) {
-	// start public server in limited functionality, extend it after sync is finished by calling ConnectFullPublicInterface
-	publicServer, err := server.NewPublicServer(*publicBinding, *certFiles, index, chain, mempool, txCache, *explorerURL, metrics, internalState, *debugMode)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		err = publicServer.Run()
-		if err != nil {
-			if err.Error() == "http: Server closed" {
-				glog.Info("public server: closed")
-			} else {
-				glog.Error(err)
-				return
-			}
-		}
-	}()
-	return publicServer, err
-}
-
-func performRollback() error {
-	bestHeight, bestHash, err := index.GetBestBlock()
-	if err != nil {
-		glog.Error("rollbackHeight: ", err)
-		return err
-	}
-	if uint32(*rollbackHeight) > bestHeight {
-		glog.Infof("nothing to rollback, rollbackHeight %d, bestHeight: %d", *rollbackHeight, bestHeight)
-	} else {
-		hashes := []string{bestHash}
-		for height := bestHeight - 1; height >= uint32(*rollbackHeight); height-- {
-			hash, err := index.GetBlockHash(height)
-			if err != nil {
-				glog.Error("rollbackHeight: ", err)
-				return err
-			}
-			hashes = append(hashes, hash)
-		}
-		err = syncWorker.DisconnectBlocks(uint32(*rollbackHeight), bestHeight, hashes)
-		if err != nil {
-			glog.Error("rollbackHeight: ", err)
-			return err
-		}
-	}
-	return nil
 }
 
 func blockbookAppInfoMetric(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, is *common.InternalState, metrics *common.Metrics) error {
-	api, err := api.NewWorker(db, chain, mempool, txCache, is)
+	api, err := api.NewWorker(db, chain, txCache, is)
 	if err != nil {
 		return err
 	}
@@ -504,12 +424,7 @@ func syncIndexLoop() {
 	// resync index about every 15 minutes if there are no chanSyncIndex requests, with debounce 1 second
 	tickAndDebounce(time.Duration(*resyncIndexPeriodMs)*time.Millisecond, debounceResyncIndexMs*time.Millisecond, chanSyncIndex, func() {
 		if err := syncWorker.ResyncIndex(onNewBlockHash, false); err != nil {
-			glog.Error("syncIndexLoop ", errors.ErrorStack(err), ", will retry...")
-			// retry once in case of random network error, after a slight delay
-			time.Sleep(time.Millisecond * 2500)
-			if err := syncWorker.ResyncIndex(onNewBlockHash, false); err != nil {
-				glog.Error("syncIndexLoop ", errors.ErrorStack(err))
-			}
+			glog.Error("syncIndexLoop ", errors.ErrorStack(err))
 		}
 	})
 	glog.Info("syncIndexLoop stopped")
@@ -527,7 +442,7 @@ func syncMempoolLoop() {
 	// resync mempool about every minute if there are no chanSyncMempool requests, with debounce 1 second
 	tickAndDebounce(time.Duration(*resyncMempoolPeriodMs)*time.Millisecond, debounceResyncMempoolMs*time.Millisecond, chanSyncMempool, func() {
 		internalState.StartedMempoolSync()
-		if count, err := mempool.Resync(); err != nil {
+		if count, err := chain.ResyncMempool(onNewTxAddr); err != nil {
 			glog.Error("syncMempoolLoop ", errors.ErrorStack(err))
 		} else {
 			internalState.FinishedMempoolSync(count)
@@ -636,17 +551,4 @@ func normalizeName(s string) string {
 	s = strings.ToLower(s)
 	s = strings.Replace(s, " ", "-", -1)
 	return s
-}
-
-// computeFeeStats computes fee distribution in defined blocks
-func computeFeeStats(stopCompute chan os.Signal, blockFrom, blockTo int, db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, is *common.InternalState, metrics *common.Metrics) error {
-	start := time.Now()
-	glog.Info("computeFeeStats start")
-	api, err := api.NewWorker(db, chain, mempool, txCache, is)
-	if err != nil {
-		return err
-	}
-	err = api.ComputeFeeStats(blockFrom, blockTo, stopCompute)
-	glog.Info("computeFeeStats finished in ", time.Since(start))
-	return err
 }

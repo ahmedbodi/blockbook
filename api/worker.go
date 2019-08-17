@@ -8,10 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
-	"os"
-	"sort"
 	"strconv"
 	"time"
 
@@ -26,19 +23,17 @@ type Worker struct {
 	chain       bchain.BlockChain
 	chainParser bchain.BlockChainParser
 	chainType   bchain.ChainType
-	mempool     bchain.Mempool
 	is          *common.InternalState
 }
 
 // NewWorker creates new api worker
-func NewWorker(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, is *common.InternalState) (*Worker, error) {
+func NewWorker(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, is *common.InternalState) (*Worker, error) {
 	w := &Worker{
 		db:          db,
 		txCache:     txCache,
 		chain:       chain,
 		chainParser: chain.GetChainParser(),
 		chainType:   chain.GetChainParser().GetChainType(),
-		mempool:     mempool,
 		is:          is,
 	}
 	return w, nil
@@ -56,7 +51,7 @@ func (w *Worker) getAddressesFromVout(vout *bchain.Vout) (bchain.AddressDescript
 // setSpendingTxToVout is helper function, that finds transaction that spent given output and sets it to the output
 // there is no direct index for the operation, it must be found using addresses -> txaddresses -> tx
 func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) error {
-	err := w.db.GetAddrDescTransactions(vout.AddrDesc, height, maxUint32, func(t string, height uint32, indexes []int32) error {
+	err := w.db.GetAddrDescTransactions(vout.AddrDesc, height, ^uint32(0), func(t string, height uint32, indexes []int32) error {
 		for _, index := range indexes {
 			// take only inputs
 			if index < 0 {
@@ -166,7 +161,11 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 						if err == bchain.ErrTxNotFound {
 							// try to get AddrDesc using coin specific handling and continue processing the tx
 							vin.AddrDesc = w.chainParser.GetAddrDescForUnknownInput(bchainTx, i)
-							vin.Addresses, vin.IsAddress, err = w.chainParser.GetAddressesFromAddrDesc(vin.AddrDesc)
+                            vin.ValueSat = (*Amount)(w.chainParser.GetValueSatForUnknownInput(bchainTx, i))
+                            if vin.ValueSat != nil {
+                                valInSat.Add(&valInSat, (*big.Int)(vin.ValueSat))
+                            }
+							vin.Addresses, vin.Searchable, err = w.chainParser.GetAddressesFromAddrDesc(vin.AddrDesc)
 							if err != nil {
 								glog.Warning("GetAddressesFromAddrDesc tx ", bchainVin.Txid, ", addrDesc ", vin.AddrDesc, ": ", err)
 							}
@@ -176,16 +175,12 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 					}
 					// mempool transactions are not in TxAddresses but confirmed should be there, log a problem
 					if bchainTx.Confirmations > 0 {
-						inSync, _, _ := w.is.GetSyncState()
-						// backend can report tx as confirmed, however blockbook is still syncing (!inSync), in this case do not log a problem
-						if bchainTx.Confirmations != 1 || inSync {
-							glog.Warning("DB inconsistency:  tx ", bchainVin.Txid, ": not found in txAddresses")
-						}
+						glog.Warning("DB inconsistency:  tx ", bchainVin.Txid, ": not found in txAddresses")
 					}
 					if len(otx.Vout) > int(vin.Vout) {
 						vout := &otx.Vout[vin.Vout]
 						vin.ValueSat = (*Amount)(&vout.ValueSat)
-						vin.AddrDesc, vin.Addresses, vin.IsAddress, err = w.getAddressesFromVout(vout)
+						vin.AddrDesc, vin.Addresses, vin.Searchable, err = w.getAddressesFromVout(vout)
 						if err != nil {
 							glog.Errorf("getAddressesFromVout error %v, vout %+v", err, vout)
 						}
@@ -195,7 +190,7 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 						output := &tas.Outputs[vin.Vout]
 						vin.ValueSat = (*Amount)(&output.ValueSat)
 						vin.AddrDesc = output.AddrDesc
-						vin.Addresses, vin.IsAddress, err = output.Addresses(w.chainParser)
+						vin.Addresses, vin.Searchable, err = output.Addresses(w.chainParser)
 						if err != nil {
 							glog.Errorf("output.Addresses error %v, tx %v, output %v", err, bchainVin.Txid, i)
 						}
@@ -212,7 +207,7 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 					glog.Errorf("GetAddrDescFromAddress error %v, tx %v, bchainVin %v", err, bchainTx.Txid, bchainVin)
 				}
 				vin.Addresses = bchainVin.Addresses
-				vin.IsAddress = true
+				vin.Searchable = true
 			}
 		}
 	}
@@ -224,7 +219,7 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 		vout.ValueSat = (*Amount)(&bchainVout.ValueSat)
 		valOutSat.Add(&valOutSat, &bchainVout.ValueSat)
 		vout.Hex = bchainVout.ScriptPubKey.Hex
-		vout.AddrDesc, vout.Addresses, vout.IsAddress, err = w.getAddressesFromVout(bchainVout)
+		vout.AddrDesc, vout.Addresses, vout.Searchable, err = w.getAddressesFromVout(bchainVout)
 		if err != nil {
 			glog.V(2).Infof("getAddressesFromVout error %v, %v, output %v", err, bchainTx.Txid, bchainVout.N)
 		}
@@ -301,10 +296,6 @@ func (w *Worker) GetTransactionFromBchainTx(bchainTx *bchain.Tx, height uint32, 
 			return nil, err
 		}
 	}
-	// for mempool transaction get first seen time
-	if bchainTx.Confirmations == 0 {
-		bchainTx.Blocktime = int64(w.mempool.GetTransactionTime(bchainTx.Txid))
-	}
 	r := &Tx{
 		Blockhash:        blockhash,
 		Blockheight:      int(height),
@@ -361,7 +352,7 @@ func (w *Worker) getAddressTxids(addrDesc bchain.AddressDescriptor, mempool bool
 	}
 	if mempool {
 		uniqueTxs := make(map[string]struct{})
-		o, err := w.mempool.GetAddrDescTransactions(addrDesc)
+		o, err := w.chain.GetMempoolTransactionsForAddrDesc(addrDesc)
 		if err != nil {
 			return nil, err
 		}
@@ -377,7 +368,7 @@ func (w *Worker) getAddressTxids(addrDesc bchain.AddressDescriptor, mempool bool
 	} else {
 		to := filter.ToHeight
 		if to == 0 {
-			to = maxUint32
+			to = ^uint32(0)
 		}
 		err = w.db.GetAddrDescTransactions(addrDesc, filter.FromHeight, to, callback)
 		if err != nil {
@@ -433,7 +424,7 @@ func (w *Worker) txFromTxAddress(txid string, ta *db.TxAddresses, bi *db.BlockIn
 		vin.N = i
 		vin.ValueSat = (*Amount)(&tai.ValueSat)
 		valInSat.Add(&valInSat, &tai.ValueSat)
-		vin.Addresses, vin.IsAddress, err = tai.Addresses(w.chainParser)
+		vin.Addresses, vin.Searchable, err = tai.Addresses(w.chainParser)
 		if err != nil {
 			glog.Errorf("tai.Addresses error %v, tx %v, input %v, tai %+v", err, txid, i, tai)
 		}
@@ -445,7 +436,7 @@ func (w *Worker) txFromTxAddress(txid string, ta *db.TxAddresses, bi *db.BlockIn
 		vout.N = i
 		vout.ValueSat = (*Amount)(&tao.ValueSat)
 		valOutSat.Add(&valOutSat, &tao.ValueSat)
-		vout.Addresses, vout.IsAddress, err = tao.Addresses(w.chainParser)
+		vout.Addresses, vout.Searchable, err = tao.Addresses(w.chainParser)
 		if err != nil {
 			glog.Errorf("tai.Addresses error %v, tx %v, output %v, tao %+v", err, txid, i, tao)
 		}
@@ -492,7 +483,7 @@ func computePaging(count, page, itemsOnPage int) (Paging, int, int, int) {
 	}, from, to, page
 }
 
-func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescriptor, details AccountDetails, filter *AddressFilter) (*db.AddrBalance, []Token, *bchain.Erc20Contract, uint64, int, int, error) {
+func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescriptor, option GetAddressOption, filter *AddressFilter) (*db.AddrBalance, []Token, *bchain.Erc20Contract, uint64, int, int, error) {
 	var (
 		ba             *db.AddrBalance
 		tokens         []Token
@@ -528,55 +519,53 @@ func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescripto
 				return nil, nil, nil, 0, 0, 0, NewAPIError(fmt.Sprintf("Invalid contract filter, %v", err), true)
 			}
 		}
-		if details > AccountDetailsBasic {
-			tokens = make([]Token, len(ca.Contracts))
-			var j int
-			for i, c := range ca.Contracts {
-				if len(filterDesc) > 0 {
-					if !bytes.Equal(filterDesc, c.Contract) {
-						continue
-					}
-					// filter only transactions of this contract
-					filter.Vout = i + 1
+		tokens = make([]Token, len(ca.Contracts))
+		var j int
+		for i, c := range ca.Contracts {
+			if len(filterDesc) > 0 {
+				if !bytes.Equal(filterDesc, c.Contract) {
+					continue
 				}
-				validContract := true
-				ci, err := w.chain.EthereumTypeGetErc20ContractInfo(c.Contract)
-				if err != nil {
-					return nil, nil, nil, 0, 0, 0, errors.Annotatef(err, "EthereumTypeGetErc20ContractInfo %v", c.Contract)
-				}
-				if ci == nil {
-					ci = &bchain.Erc20Contract{}
-					addresses, _, _ := w.chainParser.GetAddressesFromAddrDesc(c.Contract)
-					if len(addresses) > 0 {
-						ci.Contract = addresses[0]
-						ci.Name = addresses[0]
-					}
-					validContract = false
-				}
-				// do not read contract balances etc in case of Basic option
-				if details >= AccountDetailsTokenBalances && validContract {
-					b, err = w.chain.EthereumTypeGetErc20ContractBalance(addrDesc, c.Contract)
-					if err != nil {
-						// return nil, nil, nil, errors.Annotatef(err, "EthereumTypeGetErc20ContractBalance %v %v", addrDesc, c.Contract)
-						glog.Warningf("EthereumTypeGetErc20ContractBalance addr %v, contract %v, %v", addrDesc, c.Contract, err)
-					}
-				} else {
-					b = nil
-				}
-				tokens[j] = Token{
-					Type:          ERC20TokenType,
-					BalanceSat:    (*Amount)(b),
-					Contract:      ci.Contract,
-					Name:          ci.Name,
-					Symbol:        ci.Symbol,
-					Transfers:     int(c.Txs),
-					Decimals:      ci.Decimals,
-					ContractIndex: strconv.Itoa(i + 1),
-				}
-				j++
+				// filter only transactions of this contract
+				filter.Vout = i + 1
 			}
-			tokens = tokens[:j]
+			validContract := true
+			ci, err := w.chain.EthereumTypeGetErc20ContractInfo(c.Contract)
+			if err != nil {
+				return nil, nil, nil, 0, 0, 0, errors.Annotatef(err, "EthereumTypeGetErc20ContractInfo %v", c.Contract)
+			}
+			if ci == nil {
+				ci = &bchain.Erc20Contract{}
+				addresses, _, _ := w.chainParser.GetAddressesFromAddrDesc(c.Contract)
+				if len(addresses) > 0 {
+					ci.Contract = addresses[0]
+					ci.Name = addresses[0]
+				}
+				validContract = false
+			}
+			// do not read contract balances etc in case of Basic option
+			if option != Basic && validContract {
+				b, err = w.chain.EthereumTypeGetErc20ContractBalance(addrDesc, c.Contract)
+				if err != nil {
+					// return nil, nil, nil, errors.Annotatef(err, "EthereumTypeGetErc20ContractBalance %v %v", addrDesc, c.Contract)
+					glog.Warningf("EthereumTypeGetErc20ContractBalance addr %v, contract %v, %v", addrDesc, c.Contract, err)
+				}
+			} else {
+				b = nil
+			}
+			tokens[j] = Token{
+				Type:          ERC20TokenType,
+				BalanceSat:    (*Amount)(b),
+				Contract:      ci.Contract,
+				Name:          ci.Name,
+				Symbol:        ci.Symbol,
+				Transfers:     int(c.Txs),
+				Decimals:      ci.Decimals,
+				ContractIndex: strconv.Itoa(i + 1),
+			}
+			j++
 		}
+		tokens = tokens[:j]
 		ci, err = w.chain.EthereumTypeGetErc20ContractInfo(addrDesc)
 		if err != nil {
 			return nil, nil, nil, 0, 0, 0, err
@@ -603,67 +592,16 @@ func (w *Worker) getEthereumTypeAddressBalances(addrDesc bchain.AddressDescripto
 	return ba, tokens, ci, n, nonContractTxs, totalResults, nil
 }
 
-func (w *Worker) txFromTxid(txid string, bestheight uint32, option AccountDetails, blockInfo *db.BlockInfo) (*Tx, error) {
-	var tx *Tx
-	var err error
-	// only ChainBitcoinType supports TxHistoryLight
-	if option == AccountDetailsTxHistoryLight && w.chainType == bchain.ChainBitcoinType {
-		ta, err := w.db.GetTxAddresses(txid)
-		if err != nil {
-			return nil, errors.Annotatef(err, "GetTxAddresses %v", txid)
-		}
-		if ta == nil {
-			glog.Warning("DB inconsistency:  tx ", txid, ": not found in txAddresses")
-			// as fallback, get tx from backend
-			tx, err = w.GetTransaction(txid, false, true)
-			if err != nil {
-				return nil, errors.Annotatef(err, "GetTransaction %v", txid)
-			}
-		} else {
-			if blockInfo == nil {
-				blockInfo, err = w.db.GetBlockInfo(ta.Height)
-				if err != nil {
-					return nil, errors.Annotatef(err, "GetBlockInfo %v", ta.Height)
-				}
-				if blockInfo == nil {
-					glog.Warning("DB inconsistency:  block height ", ta.Height, ": not found in db")
-					// provide empty BlockInfo to return the rest of tx data
-					blockInfo = &db.BlockInfo{}
-				}
-			}
-			tx = w.txFromTxAddress(txid, ta, blockInfo, bestheight)
-		}
-	} else {
-		tx, err = w.GetTransaction(txid, false, true)
-		if err != nil {
-			return nil, errors.Annotatef(err, "GetTransaction %v", txid)
-		}
-	}
-	return tx, nil
-}
-
-func (w *Worker) getAddrDescAndNormalizeAddress(address string) (bchain.AddressDescriptor, string, error) {
-	addrDesc, err := w.chainParser.GetAddrDescFromAddress(address)
-	if err != nil {
-		return nil, "", NewAPIError(fmt.Sprintf("Invalid address, %v", err), true)
-	}
-	// convert the address to the format defined by the parser
-	addresses, _, err := w.chainParser.GetAddressesFromAddrDesc(addrDesc)
-	if err != nil {
-		glog.V(2).Infof("GetAddressesFromAddrDesc error %v, %v", err, addrDesc)
-	}
-	if len(addresses) == 1 {
-		address = addresses[0]
-	}
-	return addrDesc, address, nil
-}
-
 // GetAddress computes address value and gets transactions for given address
-func (w *Worker) GetAddress(address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter) (*Address, error) {
+func (w *Worker) GetAddress(address string, page int, txsOnPage int, option GetAddressOption, filter *AddressFilter) (*Address, error) {
 	start := time.Now()
 	page--
 	if page < 0 {
 		page = 0
+	}
+	addrDesc, err := w.chainParser.GetAddrDescFromAddress(address)
+	if err != nil {
+		return nil, NewAPIError(fmt.Sprintf("Invalid address, %v", err), true)
 	}
 	var (
 		ba                       *db.AddrBalance
@@ -676,14 +614,9 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		uBalSat                  big.Int
 		totalReceived, totalSent *big.Int
 		nonce                    string
-		unconfirmedTxs           int
 		nonTokenTxs              int
 		totalResults             int
 	)
-	addrDesc, address, err := w.getAddrDescAndNormalizeAddress(address)
-	if err != nil {
-		return nil, err
-	}
 	if w.chainType == bchain.ChainEthereumType {
 		var n uint64
 		ba, tokens, erc20c, n, nonTokenTxs, totalResults, err = w.getEthereumTypeAddressBalances(addrDesc, option, filter)
@@ -693,7 +626,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		nonce = strconv.Itoa(int(n))
 	} else {
 		// ba can be nil if the address is only in mempool!
-		ba, err = w.db.GetAddrDescBalance(addrDesc, db.AddressBalanceDetailNoUTXO)
+		ba, err = w.db.GetAddrDescBalance(addrDesc)
 		if err != nil {
 			return nil, NewAPIError(fmt.Sprintf("Address not found, %v", err), true)
 		}
@@ -706,68 +639,114 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 			}
 		}
 	}
-	// if there are only unconfirmed transactions, there is no paging
-	if ba == nil {
-		ba = &db.AddrBalance{}
-		page = 0
-	}
-	// process mempool, only if toHeight is not specified
-	if filter.ToHeight == 0 && !filter.OnlyConfirmed {
-		txm, err = w.getAddressTxids(addrDesc, true, filter, maxInt)
+	// get tx history if requested by option or check mempool if there are some transactions for a new address
+	if option >= TxidHistory || ba == nil {
+		// convert the address to the format defined by the parser
+		addresses, _, err := w.chainParser.GetAddressesFromAddrDesc(addrDesc)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getAddressTxids %v true", addrDesc)
+			glog.V(2).Infof("GetAddressesFromAddrDesc error %v, %v", err, addrDesc)
 		}
-		for _, txid := range txm {
-			tx, err := w.GetTransaction(txid, false, false)
-			// mempool transaction may fail
-			if err != nil || tx == nil {
-				glog.Warning("GetTransaction in mempool: ", err)
+		if len(addresses) == 1 {
+			address = addresses[0]
+		}
+		// get txs from mempool only if blockheight filter is off
+		if filter.FromHeight == 0 && filter.ToHeight == 0 {
+			txm, err = w.getAddressTxids(addrDesc, true, filter, maxInt)
+			if err != nil {
+				return nil, errors.Annotatef(err, "getAddressTxids %v true", addrDesc)
+			}
+		}
+		// if there are only unconfirmed transactions, there is no paging
+		if ba == nil {
+			ba = &db.AddrBalance{}
+			page = 0
+		}
+		if option >= TxidHistory {
+			txc, err := w.getAddressTxids(addrDesc, false, filter, (page+1)*txsOnPage)
+			if err != nil {
+				return nil, errors.Annotatef(err, "getAddressTxids %v false", addrDesc)
+			}
+			bestheight, _, err := w.db.GetBestBlock()
+			if err != nil {
+				return nil, errors.Annotatef(err, "GetBestBlock")
+			}
+			var from, to int
+			pg, from, to, page = computePaging(len(txc), page, txsOnPage)
+			if len(txc) >= txsOnPage {
+				if totalResults < 0 {
+					pg.TotalPages = -1
+				} else {
+					pg, _, _, _ = computePaging(totalResults, page, txsOnPage)
+				}
+			}
+			if option == TxidHistory {
+				txids = make([]string, len(txm)+to-from)
 			} else {
-				// skip already confirmed txs, mempool may be out of sync
-				if tx.Confirmations == 0 {
-					unconfirmedTxs++
-					uBalSat.Add(&uBalSat, tx.getAddrVoutValue(addrDesc))
-					uBalSat.Sub(&uBalSat, tx.getAddrVinValue(addrDesc))
-					if page == 0 {
-						if option == AccountDetailsTxidHistory {
-							txids = append(txids, tx.Txid)
-						} else if option >= AccountDetailsTxHistoryLight {
-							txs = append(txs, tx)
+				txs = make([]*Tx, len(txm)+to-from)
+			}
+			txi := 0
+			// get mempool transactions
+			for _, txid := range txm {
+				tx, err := w.GetTransaction(txid, false, false)
+				// mempool transaction may fail
+				if err != nil || tx == nil {
+					glog.Warning("GetTransaction in mempool: ", err)
+				} else {
+					// skip already confirmed txs, mempool may be out of sync
+					if tx.Confirmations == 0 {
+						uBalSat.Add(&uBalSat, tx.getAddrVoutValue(addrDesc))
+						uBalSat.Sub(&uBalSat, tx.getAddrVinValue(addrDesc))
+						if page == 0 {
+							if option == TxidHistory {
+								txids[txi] = tx.Txid
+							} else {
+								txs[txi] = tx
+							}
+							txi++
 						}
 					}
 				}
 			}
-		}
-	}
-	// get tx history if requested by option or check mempool if there are some transactions for a new address
-	if option >= AccountDetailsTxidHistory {
-		txc, err := w.getAddressTxids(addrDesc, false, filter, (page+1)*txsOnPage)
-		if err != nil {
-			return nil, errors.Annotatef(err, "getAddressTxids %v false", addrDesc)
-		}
-		bestheight, _, err := w.db.GetBestBlock()
-		if err != nil {
-			return nil, errors.Annotatef(err, "GetBestBlock")
-		}
-		var from, to int
-		pg, from, to, page = computePaging(len(txc), page, txsOnPage)
-		if len(txc) >= txsOnPage {
-			if totalResults < 0 {
-				pg.TotalPages = -1
-			} else {
-				pg, _, _, _ = computePaging(totalResults, page, txsOnPage)
-			}
-		}
-		for i := from; i < to; i++ {
-			txid := txc[i]
-			if option == AccountDetailsTxidHistory {
-				txids = append(txids, txid)
-			} else {
-				tx, err := w.txFromTxid(txid, bestheight, option, nil)
-				if err != nil {
-					return nil, err
+			// get confirmed transactions
+			for i := from; i < to; i++ {
+				txid := txc[i]
+				if option == TxidHistory {
+					txids[txi] = txid
+				} else {
+					// only ChainBitcoinType supports TxHistoryLight
+					if option == TxHistoryLight && w.chainType == bchain.ChainBitcoinType {
+						ta, err := w.db.GetTxAddresses(txid)
+						if err != nil {
+							return nil, errors.Annotatef(err, "GetTxAddresses %v", txid)
+						}
+						if ta == nil {
+							glog.Warning("DB inconsistency:  tx ", txid, ": not found in txAddresses")
+							// as fallback, provide empty TxAddresses to return at least something
+							ta = &db.TxAddresses{}
+						}
+						bi, err := w.db.GetBlockInfo(ta.Height)
+						if err != nil {
+							return nil, errors.Annotatef(err, "GetBlockInfo %v", ta.Height)
+						}
+						if bi == nil {
+							glog.Warning("DB inconsistency:  block height ", ta.Height, ": not found in db")
+							// provide empty BlockInfo to return the rest of tx data
+							bi = &db.BlockInfo{}
+						}
+						txs[txi] = w.txFromTxAddress(txid, ta, bi, bestheight)
+					} else {
+						txs[txi], err = w.GetTransaction(txid, false, true)
+						if err != nil {
+							return nil, errors.Annotatef(err, "GetTransaction %v", txid)
+						}
+					}
 				}
-				txs = append(txs, tx)
+				txi++
+			}
+			if option == TxidHistory {
+				txids = txids[:txi]
+			} else if option >= TxHistoryLight {
+				txs = txs[:txi]
 			}
 		}
 	}
@@ -784,7 +763,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 		Txs:                   int(ba.Txs),
 		NonTokenTxs:           nonTokenTxs,
 		UnconfirmedBalanceSat: (*Amount)(&uBalSat),
-		UnconfirmedTxs:        unconfirmedTxs,
+		UnconfirmedTxs:        len(txm),
 		Transactions:          txs,
 		Txids:                 txids,
 		Tokens:                tokens,
@@ -795,124 +774,125 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 	return r, nil
 }
 
-func (w *Worker) waitForBackendSync() {
-	// wait a short time if blockbook is synchronizing with backend
-	inSync, _, _ := w.is.GetSyncState()
-	count := 30
-	for !inSync && count > 0 {
-		time.Sleep(time.Millisecond * 100)
-		count--
-		inSync, _, _ = w.is.GetSyncState()
-	}
-}
-
-func (w *Worker) getAddrDescUtxo(addrDesc bchain.AddressDescriptor, ba *db.AddrBalance, onlyConfirmed bool, onlyMempool bool) (Utxos, error) {
-	w.waitForBackendSync()
-	var err error
-	r := make(Utxos, 0, 8)
-	spentInMempool := make(map[string]struct{})
-	if !onlyConfirmed {
-		// get utxo from mempool
-		txm, err := w.getAddressTxids(addrDesc, true, &AddressFilter{Vout: AddressFilterVoutOff}, maxInt)
-		if err != nil {
-			return nil, err
-		}
-		if len(txm) > 0 {
-			mc := make([]*bchain.Tx, len(txm))
-			for i, txid := range txm {
-				// get mempool txs and process their inputs to detect spends between mempool txs
-				bchainTx, _, err := w.txCache.GetTransaction(txid)
-				// mempool transaction may fail
-				if err != nil {
-					glog.Error("GetTransaction in mempool ", txid, ": ", err)
-				} else {
-					mc[i] = bchainTx
-					// get outputs spent by the mempool tx
-					for i := range bchainTx.Vin {
-						vin := &bchainTx.Vin[i]
-						spentInMempool[vin.Txid+strconv.Itoa(int(vin.Vout))] = struct{}{}
-					}
-				}
-			}
-			for _, bchainTx := range mc {
-				if bchainTx != nil {
-					for i := range bchainTx.Vout {
-						vout := &bchainTx.Vout[i]
-						vad, err := w.chainParser.GetAddrDescFromVout(vout)
-						if err == nil && bytes.Equal(addrDesc, vad) {
-							// report only outpoints that are not spent in mempool
-							_, e := spentInMempool[bchainTx.Txid+strconv.Itoa(i)]
-							if !e {
-								r = append(r, Utxo{
-									Txid:      bchainTx.Txid,
-									Vout:      int32(i),
-									AmountSat: (*Amount)(&vout.ValueSat),
-									Locktime:  bchainTx.LockTime,
-								})
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	if !onlyMempool {
-		// get utxo from index
-		if ba == nil {
-			ba, err = w.db.GetAddrDescBalance(addrDesc, db.AddressBalanceDetailUTXO)
-			if err != nil {
-				return nil, NewAPIError(fmt.Sprintf("Address not found, %v", err), true)
-			}
-		}
-		// ba can be nil if the address is only in mempool!
-		if ba != nil && len(ba.Utxos) > 0 {
-			b, _, err := w.db.GetBestBlock()
-			if err != nil {
-				return nil, err
-			}
-			bestheight := int(b)
-			var checksum big.Int
-			checksum.Set(&ba.BalanceSat)
-			// go backwards to get the newest first
-			for i := len(ba.Utxos) - 1; i >= 0; i-- {
-				utxo := &ba.Utxos[i]
-				txid, err := w.chainParser.UnpackTxid(utxo.BtxID)
-				if err != nil {
-					return nil, err
-				}
-				_, e := spentInMempool[txid+strconv.Itoa(int(utxo.Vout))]
-				if !e {
-					r = append(r, Utxo{
-						Txid:          txid,
-						Vout:          utxo.Vout,
-						AmountSat:     (*Amount)(&utxo.ValueSat),
-						Height:        int(utxo.Height),
-						Confirmations: bestheight - int(utxo.Height) + 1,
-					})
-				}
-				checksum.Sub(&checksum, &utxo.ValueSat)
-			}
-			if checksum.Uint64() != 0 {
-				glog.Warning("DB inconsistency:  ", addrDesc, ": checksum is not zero")
-			}
-		}
-	}
-	return r, nil
-}
-
 // GetAddressUtxo returns unspent outputs for given address
-func (w *Worker) GetAddressUtxo(address string, onlyConfirmed bool) (Utxos, error) {
+func (w *Worker) GetAddressUtxo(address string, onlyConfirmed bool) ([]AddressUtxo, error) {
 	if w.chainType != bchain.ChainBitcoinType {
 		return nil, NewAPIError("Not supported", true)
 	}
 	start := time.Now()
 	addrDesc, err := w.chainParser.GetAddrDescFromAddress(address)
 	if err != nil {
-		return nil, NewAPIError(fmt.Sprintf("Invalid address '%v', %v", address, err), true)
+		return nil, NewAPIError(fmt.Sprintf("Invalid address, %v", err), true)
 	}
-	r, err := w.getAddrDescUtxo(addrDesc, nil, onlyConfirmed, false)
+	spentInMempool := make(map[string]struct{})
+	r := make([]AddressUtxo, 0, 8)
+	if !onlyConfirmed {
+		// get utxo from mempool
+		txm, err := w.getAddressTxids(addrDesc, true, &AddressFilter{Vout: AddressFilterVoutOff}, maxInt)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getAddressTxids %v true", address)
+		}
+		mc := make([]*bchain.Tx, len(txm))
+		for i, txid := range txm {
+			// get mempool txs and process their inputs to detect spends between mempool txs
+			bchainTx, _, err := w.txCache.GetTransaction(txid)
+			// mempool transaction may fail
+			if err != nil {
+				glog.Error("GetTransaction in mempool ", txid, ": ", err)
+			} else {
+				mc[i] = bchainTx
+				// get outputs spent by the mempool tx
+				for i := range bchainTx.Vin {
+					vin := &bchainTx.Vin[i]
+					spentInMempool[vin.Txid+strconv.Itoa(int(vin.Vout))] = struct{}{}
+				}
+			}
+		}
+		for _, bchainTx := range mc {
+			if bchainTx != nil {
+				for i := range bchainTx.Vout {
+					vout := &bchainTx.Vout[i]
+					vad, err := w.chainParser.GetAddrDescFromVout(vout)
+					if err == nil && bytes.Equal(addrDesc, vad) {
+						// report only outpoints that are not spent in mempool
+						_, e := spentInMempool[bchainTx.Txid+strconv.Itoa(i)]
+						if !e {
+							r = append(r, AddressUtxo{
+								Txid:      bchainTx.Txid,
+								Vout:      int32(i),
+								AmountSat: (*Amount)(&vout.ValueSat),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+	// get utxo from index
+	ba, err := w.db.GetAddrDescBalance(addrDesc)
 	if err != nil {
-		return nil, err
+		return nil, NewAPIError(fmt.Sprintf("Address not found, %v", err), true)
+	}
+	var checksum big.Int
+	// ba can be nil if the address is only in mempool!
+	if ba != nil && ba.BalanceSat.Uint64() > 0 {
+		outpoints := make([]bchain.Outpoint, 0, 8)
+		err = w.db.GetAddrDescTransactions(addrDesc, 0, ^uint32(0), func(txid string, height uint32, indexes []int32) error {
+			for _, index := range indexes {
+				// take only outputs
+				if index >= 0 {
+					outpoints = append(outpoints, bchain.Outpoint{Txid: txid, Vout: index})
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		var lastTxid string
+		var ta *db.TxAddresses
+		checksum = ba.BalanceSat
+		b, _, err := w.db.GetBestBlock()
+		if err != nil {
+			return nil, err
+		}
+		bestheight := int(b)
+		for i := len(outpoints) - 1; i >= 0 && checksum.Int64() > 0; i-- {
+			o := outpoints[i]
+			if lastTxid != o.Txid {
+				ta, err = w.db.GetTxAddresses(o.Txid)
+				if err != nil {
+					return nil, err
+				}
+				lastTxid = o.Txid
+			}
+			if ta == nil {
+				glog.Warning("DB inconsistency:  tx ", o.Txid, ": not found in txAddresses")
+			} else {
+				if len(ta.Outputs) <= int(o.Vout) {
+					glog.Warning("DB inconsistency:  txAddresses ", o.Txid, " does not have enough outputs")
+				} else {
+					if !ta.Outputs[o.Vout].Spent {
+						v := ta.Outputs[o.Vout].ValueSat
+						// report only outpoints that are not spent in mempool
+						_, e := spentInMempool[o.Txid+strconv.Itoa(int(o.Vout))]
+						if !e {
+							r = append(r, AddressUtxo{
+								Txid:          o.Txid,
+								Vout:          o.Vout,
+								AmountSat:     (*Amount)(&v),
+								Height:        int(ta.Height),
+								Confirmations: bestheight - int(ta.Height) + 1,
+							})
+						}
+						checksum.Sub(&checksum, &v)
+					}
+				}
+			}
+		}
+	}
+	if checksum.Uint64() != 0 {
+		glog.Warning("DB inconsistency:  ", address, ": checksum is not zero")
 	}
 	glog.Info("GetAddressUtxo ", address, ", ", len(r), " utxos, finished in ", time.Since(start))
 	return r, nil
@@ -959,16 +939,13 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 	// if it's a number, must be less than int32
 	var hash string
 	height, err := strconv.Atoi(bid)
-	if err == nil && height < int(maxUint32) {
+	if err == nil && height < int(^uint32(0)) {
 		hash, err = w.db.GetBlockHash(uint32(height))
 		if err != nil {
 			hash = bid
 		}
 	} else {
 		hash = bid
-	}
-	if hash == "" {
-		return nil, NewAPIError("Block not found", true)
 	}
 	bi, err := w.chain.GetBlockInfo(hash)
 	if err != nil {
@@ -991,9 +968,22 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 	txs := make([]*Tx, to-from)
 	txi := 0
 	for i := from; i < to; i++ {
-		txs[txi], err = w.txFromTxid(bi.Txids[i], bestheight, AccountDetailsTxHistoryLight, dbi)
-		if err != nil {
-			return nil, err
+		txid := bi.Txids[i]
+		if w.chainType == bchain.ChainBitcoinType {
+			ta, err := w.db.GetTxAddresses(txid)
+			if err != nil {
+				return nil, errors.Annotatef(err, "GetTxAddresses %v", txid)
+			}
+			if ta == nil {
+				glog.Warning("DB inconsistency:  tx ", txid, ": not found in txAddresses")
+				continue
+			}
+			txs[txi] = w.txFromTxAddress(txid, ta, dbi, bestheight)
+		} else {
+			txs[txi], err = w.GetTransaction(txid, false, false)
+			if err != nil {
+				return nil, err
+			}
 		}
 		txi++
 	}
@@ -1007,110 +997,30 @@ func (w *Worker) GetBlock(bid string, page int, txsOnPage int) (*Block, error) {
 	bi.Txids = nil
 	glog.Info("GetBlock ", bid, ", page ", page, " finished in ", time.Since(start))
 	return &Block{
-		Paging: pg,
-		BlockInfo: BlockInfo{
-			Hash:          bi.Hash,
-			Prev:          bi.Prev,
-			Next:          bi.Next,
-			Height:        bi.Height,
-			Confirmations: bi.Confirmations,
-			Size:          bi.Size,
-			Time:          bi.Time,
-			Bits:          bi.Bits,
-			Difficulty:    string(bi.Difficulty),
-			MerkleRoot:    bi.MerkleRoot,
-			Nonce:         string(bi.Nonce),
-			Txids:         bi.Txids,
-			Version:       bi.Version,
-		},
+		Paging:       pg,
+		BlockInfo:    *bi,
 		TxCount:      txCount,
 		Transactions: txs,
 	}, nil
 }
 
-// ComputeFeeStats computes fee distribution in defined blocks and logs them to log
-func (w *Worker) ComputeFeeStats(blockFrom, blockTo int, stopCompute chan os.Signal) error {
-	bestheight, _, err := w.db.GetBestBlock()
-	if err != nil {
-		return errors.Annotatef(err, "GetBestBlock")
-	}
-	for block := blockFrom; block <= blockTo; block++ {
-		hash, err := w.db.GetBlockHash(uint32(block))
-		if err != nil {
-			return err
-		}
-		bi, err := w.chain.GetBlockInfo(hash)
-		if err != nil {
-			return err
-		}
-		// process only blocks with enough transactions
-		if len(bi.Txids) > 20 {
-			dbi := &db.BlockInfo{
-				Hash:   bi.Hash,
-				Height: bi.Height,
-				Time:   bi.Time,
-			}
-			txids := bi.Txids
-			if w.chainType == bchain.ChainBitcoinType {
-				// skip the coinbase transaction
-				txids = txids[1:]
-			}
-			fees := make([]int64, len(txids))
-			sum := int64(0)
-			for i, txid := range txids {
-				select {
-				case <-stopCompute:
-					glog.Info("ComputeFeeStats interrupted at height ", block)
-					return db.ErrOperationInterrupted
-				default:
-					tx, err := w.txFromTxid(txid, bestheight, AccountDetailsTxHistoryLight, dbi)
-					if err != nil {
-						return err
-					}
-					fee := tx.FeesSat.AsInt64()
-					fees[i] = fee
-					sum += fee
-				}
-			}
-			sort.Slice(fees, func(i, j int) bool { return fees[i] < fees[j] })
-			step := float64(len(fees)) / 10
-			percentils := ""
-			for i := float64(0); i < float64(len(fees)+1); i += step {
-				ii := int(math.Round(i))
-				if ii >= len(fees) {
-					ii = len(fees) - 1
-				}
-				percentils += "," + strconv.FormatInt(fees[ii], 10)
-			}
-			glog.Info(block, ",", time.Unix(bi.Time, 0).Format(time.RFC3339), ",", len(bi.Txids), ",", sum, ",", float64(sum)/float64(len(bi.Txids)), percentils)
-		}
-	}
-	return nil
-}
-
 // GetSystemInfo returns information about system
 func (w *Worker) GetSystemInfo(internal bool) (*SystemInfo, error) {
 	start := time.Now()
-	vi := common.GetVersionInfo()
-	inSync, bestHeight, lastBlockTime := w.is.GetSyncState()
-	inSyncMempool, lastMempoolTime, mempoolSize := w.is.GetMempoolSyncState()
 	ci, err := w.chain.GetChainInfo()
-	var backendError string
 	if err != nil {
-		glog.Error("GetChainInfo error ", err)
-		backendError = errors.Annotatef(err, "GetChainInfo").Error()
-		ci = &bchain.ChainInfo{}
-		// set not in sync in case of backend error
-		inSync = false
-		inSyncMempool = false
+		return nil, errors.Annotatef(err, "GetChainInfo")
 	}
-	var columnStats []common.InternalStateColumn
-	var internalDBSize int64
+	vi := common.GetVersionInfo()
+	ss, bh, st := w.is.GetSyncState()
+	ms, mt, msz := w.is.GetMempoolSyncState()
+	var dbc []common.InternalStateColumn
+	var dbs int64
 	if internal {
-		columnStats = w.is.GetAllDBColumnStats()
-		internalDBSize = w.is.DBSizeTotal()
+		dbc = w.is.GetAllDBColumnStats()
+		dbs = w.is.DBSizeTotal()
 	}
-	blockbookInfo := &BlockbookInfo{
+	bi := &BlockbookInfo{
 		Coin:              w.is.Coin,
 		Host:              w.is.Host,
 		Version:           vi.Version,
@@ -1118,55 +1028,18 @@ func (w *Worker) GetSystemInfo(internal bool) (*SystemInfo, error) {
 		BuildTime:         vi.BuildTime,
 		SyncMode:          w.is.SyncMode,
 		InitialSync:       w.is.InitialSync,
-		InSync:            inSync,
-		BestHeight:        bestHeight,
-		LastBlockTime:     lastBlockTime,
-		InSyncMempool:     inSyncMempool,
-		LastMempoolTime:   lastMempoolTime,
-		MempoolSize:       mempoolSize,
+		InSync:            ss,
+		BestHeight:        bh,
+		LastBlockTime:     st,
+		InSyncMempool:     ms,
+		LastMempoolTime:   mt,
+		MempoolSize:       msz,
 		Decimals:          w.chainParser.AmountDecimals(),
 		DbSize:            w.db.DatabaseSizeOnDisk(),
-		DbSizeFromColumns: internalDBSize,
-		DbColumns:         columnStats,
+		DbSizeFromColumns: dbs,
+		DbColumns:         dbc,
 		About:             Text.BlockbookAbout,
 	}
-	backendInfo := &BackendInfo{
-		BackendError:    backendError,
-		BestBlockHash:   ci.Bestblockhash,
-		Blocks:          ci.Blocks,
-		Chain:           ci.Chain,
-		Difficulty:      ci.Difficulty,
-		Headers:         ci.Headers,
-		ProtocolVersion: ci.ProtocolVersion,
-		SizeOnDisk:      ci.SizeOnDisk,
-		Subversion:      ci.Subversion,
-		Timeoffset:      ci.Timeoffset,
-		Version:         ci.Version,
-		Warnings:        ci.Warnings,
-	}
 	glog.Info("GetSystemInfo finished in ", time.Since(start))
-	return &SystemInfo{blockbookInfo, backendInfo}, nil
-}
-
-// GetMempool returns a page of mempool txids
-func (w *Worker) GetMempool(page int, itemsOnPage int) (*MempoolTxids, error) {
-	page--
-	if page < 0 {
-		page = 0
-	}
-	entries := w.mempool.GetAllEntries()
-	pg, from, to, _ := computePaging(len(entries), page, itemsOnPage)
-	r := &MempoolTxids{
-		Paging:      pg,
-		MempoolSize: len(entries),
-	}
-	r.Mempool = make([]MempoolTxid, to-from)
-	for i := from; i < to; i++ {
-		entry := &entries[i]
-		r.Mempool[i-from] = MempoolTxid{
-			Txid: entry.Txid,
-			Time: int64(entry.Time),
-		}
-	}
-	return r, nil
+	return &SystemInfo{bi, ci}, nil
 }

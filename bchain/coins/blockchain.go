@@ -3,13 +3,13 @@ package coins
 import (
 	"blockbook/bchain"
 	"blockbook/bchain/coins/bch"
-	"blockbook/bchain/coins/bellcoin"
 	"blockbook/bchain/coins/btc"
 	"blockbook/bchain/coins/btg"
+	"blockbook/bchain/coins/coffee"
 	"blockbook/bchain/coins/dash"
-	"blockbook/bchain/coins/dcr"
 	"blockbook/bchain/coins/digibyte"
 	"blockbook/bchain/coins/dogecoin"
+	"blockbook/bchain/coins/dogecash"
 	"blockbook/bchain/coins/eth"
 	"blockbook/bchain/coins/flo"
 	"blockbook/bchain/coins/fujicoin"
@@ -19,25 +19,13 @@ import (
 	"blockbook/bchain/coins/liquid"
 	"blockbook/bchain/coins/litecoin"
 	"blockbook/bchain/coins/monacoin"
-	"blockbook/bchain/coins/monetaryunit"
 	"blockbook/bchain/coins/myriad"
 	"blockbook/bchain/coins/namecoin"
-	"blockbook/bchain/coins/nuls"
 	"blockbook/bchain/coins/pivx"
-	"blockbook/bchain/coins/polis"
-	"blockbook/bchain/coins/qtum"
-	"blockbook/bchain/coins/ravencoin"
-	"blockbook/bchain/coins/ritocoin"
 	"blockbook/bchain/coins/vertcoin"
-	"blockbook/bchain/coins/viacoin"
-	"blockbook/bchain/coins/vipstarcoin"
 	"blockbook/bchain/coins/xzc"
 	"blockbook/bchain/coins/zec"
-	"blockbook/bchain/coins/qbc"
-	"blockbook/bchain/coins/coffee"
-	"blockbook/bchain/coins/hash"
-	"blockbook/bchain/coins/nyc3"
-	"blockbook/bchain/coins/sin"
+	"blockbook/bchain/coins/peso"
 	"blockbook/common"
 	"context"
 	"encoding/json"
@@ -66,22 +54,21 @@ func init() {
 	BlockChainFactories["Bcash"] = bch.NewBCashRPC
 	BlockChainFactories["Bcash Testnet"] = bch.NewBCashRPC
 	BlockChainFactories["Bgold"] = btg.NewBGoldRPC
+	BlockChainFactories["coffee"] = coffee.NewcoffeeRPC
 	BlockChainFactories["Dash"] = dash.NewDashRPC
 	BlockChainFactories["Dash Testnet"] = dash.NewDashRPC
-	BlockChainFactories["Decred"] = dcr.NewDecredRPC
-	BlockChainFactories["Decred Testnet"] = dcr.NewDecredRPC
 	BlockChainFactories["GameCredits"] = gamecredits.NewGameCreditsRPC
 	BlockChainFactories["Koto"] = koto.NewKotoRPC
 	BlockChainFactories["Koto Testnet"] = koto.NewKotoRPC
 	BlockChainFactories["Litecoin"] = litecoin.NewLitecoinRPC
 	BlockChainFactories["Litecoin Testnet"] = litecoin.NewLitecoinRPC
 	BlockChainFactories["Dogecoin"] = dogecoin.NewDogecoinRPC
+	BlockChainFactories["DogeCash"] = dogec.NewDogeCRPC
 	BlockChainFactories["Vertcoin"] = vertcoin.NewVertcoinRPC
 	BlockChainFactories["Vertcoin Testnet"] = vertcoin.NewVertcoinRPC
 	BlockChainFactories["Namecoin"] = namecoin.NewNamecoinRPC
 	BlockChainFactories["Monacoin"] = monacoin.NewMonacoinRPC
 	BlockChainFactories["Monacoin Testnet"] = monacoin.NewMonacoinRPC
-	BlockChainFactories["MonetaryUnit"] = monetaryunit.NewMonetaryUnitRPC
 	BlockChainFactories["DigiByte"] = digibyte.NewDigiByteRPC
 	BlockChainFactories["Myriad"] = myriad.NewMyriadRPC
 	BlockChainFactories["Liquid"] = liquid.NewLiquidRPC
@@ -89,24 +76,10 @@ func init() {
 	BlockChainFactories["Groestlcoin Testnet"] = grs.NewGroestlcoinRPC
 	BlockChainFactories["PIVX"] = pivx.NewPivXRPC
 	BlockChainFactories["PIVX Testnet"] = pivx.NewPivXRPC
-	BlockChainFactories["Polis"] = polis.NewPolisRPC
 	BlockChainFactories["Zcoin"] = xzc.NewZcoinRPC
 	BlockChainFactories["Fujicoin"] = fujicoin.NewFujicoinRPC
 	BlockChainFactories["Flo"] = flo.NewFloRPC
-	BlockChainFactories["Bellcoin"] = bellcoin.NewBellcoinRPC
-	BlockChainFactories["Qtum"] = qtum.NewQtumRPC
-	BlockChainFactories["Viacoin"] = viacoin.NewViacoinRPC
-	BlockChainFactories["Qtum Testnet"] = qtum.NewQtumRPC
-	BlockChainFactories["NULS"] = nuls.NewNulsRPC
-	BlockChainFactories["VIPSTARCOIN"] = vipstarcoin.NewVIPSTARCOINRPC
-	BlockChainFactories["ZelCash"] = zec.NewZCashRPC
-	BlockChainFactories["Ravencoin"] = ravencoin.NewRavencoinRPC
-	BlockChainFactories["Ritocoin"] = ritocoin.NewRitocoinRPC
-	BlockChainFactories["QBC"] = qbc.NewqbcRPC
-	BlockChainFactories["coffee"] = coffee.NewCoffeERPC
-	BlockChainFactories["hash"] = hash.NewhashRPC
-	BlockChainFactories["nyc3"] = nyc3.NewNyc3RPC
-	BlockChainFactories["sin"] = sin.NewsinRPC
+	BlockChainFactories["peso"] = hash.NewpesoRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
@@ -127,34 +100,30 @@ func GetCoinNameFromConfig(configfile string) (string, string, string, error) {
 	return cn.CoinName, cn.CoinShortcut, cn.CoinLabel, nil
 }
 
-// NewBlockChain creates bchain.BlockChain and bchain.Mempool for the coin passed by the parameter coin
-func NewBlockChain(coin string, configfile string, pushHandler func(bchain.NotificationType), metrics *common.Metrics) (bchain.BlockChain, bchain.Mempool, error) {
+// NewBlockChain creates bchain.BlockChain of type defined by parameter coin
+func NewBlockChain(coin string, configfile string, pushHandler func(bchain.NotificationType), metrics *common.Metrics) (bchain.BlockChain, error) {
 	data, err := ioutil.ReadFile(configfile)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "Error reading file %v", configfile)
+		return nil, errors.Annotatef(err, "Error reading file %v", configfile)
 	}
 	var config json.RawMessage
 	err = json.Unmarshal(data, &config)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "Error parsing file %v", configfile)
+		return nil, errors.Annotatef(err, "Error parsing file %v", configfile)
 	}
 	bcf, ok := BlockChainFactories[coin]
 	if !ok {
-		return nil, nil, errors.New(fmt.Sprint("Unsupported coin '", coin, "'. Must be one of ", reflect.ValueOf(BlockChainFactories).MapKeys()))
+		return nil, errors.New(fmt.Sprint("Unsupported coin '", coin, "'. Must be one of ", reflect.ValueOf(BlockChainFactories).MapKeys()))
 	}
 	bc, err := bcf(config, pushHandler)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	err = bc.Initialize()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	mempool, err := bc.CreateMempool(bc)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &blockChainWithMetrics{b: bc, m: metrics}, &mempoolWithMetrics{mempool: mempool, m: metrics}, nil
+	return &blockChainWithMetrics{b: bc, m: metrics}, nil
 }
 
 type blockChainWithMetrics struct {
@@ -165,21 +134,13 @@ type blockChainWithMetrics struct {
 func (c *blockChainWithMetrics) observeRPCLatency(method string, start time.Time, err error) {
 	var e string
 	if err != nil {
-		e = "failure"
+		e = err.Error()
 	}
 	c.m.RPCLatency.With(common.Labels{"method": method, "error": e}).Observe(float64(time.Since(start)) / 1e6) // in milliseconds
 }
 
 func (c *blockChainWithMetrics) Initialize() error {
 	return c.b.Initialize()
-}
-
-func (c *blockChainWithMetrics) CreateMempool(chain bchain.BlockChain) (bchain.Mempool, error) {
-	return c.b.CreateMempool(chain)
-}
-
-func (c *blockChainWithMetrics) InitializeMempool(addrDescForOutpoint bchain.AddrDescForOutpointFunc, onNewTxAddr bchain.OnNewTxAddrFunc) error {
-	return c.b.InitializeMempool(addrDescForOutpoint, onNewTxAddr)
 }
 
 func (c *blockChainWithMetrics) Shutdown(ctx context.Context) error {
@@ -237,9 +198,9 @@ func (c *blockChainWithMetrics) GetBlockInfo(hash string) (v *bchain.BlockInfo, 
 	return c.b.GetBlockInfo(hash)
 }
 
-func (c *blockChainWithMetrics) GetMempoolTransactions() (v []string, err error) {
-	defer func(s time.Time) { c.observeRPCLatency("GetMempoolTransactions", s, err) }(time.Now())
-	return c.b.GetMempoolTransactions()
+func (c *blockChainWithMetrics) GetMempool() (v []string, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("GetMempool", s, err) }(time.Now())
+	return c.b.GetMempool()
 }
 
 func (c *blockChainWithMetrics) GetTransaction(txid string) (v *bchain.Tx, err error) {
@@ -270,6 +231,25 @@ func (c *blockChainWithMetrics) EstimateFee(blocks int) (v big.Int, err error) {
 func (c *blockChainWithMetrics) SendRawTransaction(tx string) (v string, err error) {
 	defer func(s time.Time) { c.observeRPCLatency("SendRawTransaction", s, err) }(time.Now())
 	return c.b.SendRawTransaction(tx)
+}
+
+func (c *blockChainWithMetrics) ResyncMempool(onNewTxAddr bchain.OnNewTxAddrFunc) (count int, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("ResyncMempool", s, err) }(time.Now())
+	count, err = c.b.ResyncMempool(onNewTxAddr)
+	if err == nil {
+		c.m.MempoolSize.Set(float64(count))
+	}
+	return count, err
+}
+
+func (c *blockChainWithMetrics) GetMempoolTransactions(address string) (v []bchain.Outpoint, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("GetMempoolTransactions", s, err) }(time.Now())
+	return c.b.GetMempoolTransactions(address)
+}
+
+func (c *blockChainWithMetrics) GetMempoolTransactionsForAddrDesc(addrDesc bchain.AddressDescriptor) (v []bchain.Outpoint, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("GetMempoolTransactionsForAddrDesc", s, err) }(time.Now())
+	return c.b.GetMempoolTransactionsForAddrDesc(addrDesc)
 }
 
 func (c *blockChainWithMetrics) GetMempoolEntry(txid string) (v *bchain.MempoolEntry, err error) {
@@ -306,43 +286,7 @@ func (c *blockChainWithMetrics) EthereumTypeGetErc20ContractBalance(addrDesc, co
 	return c.b.EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc)
 }
 
-type mempoolWithMetrics struct {
-	mempool bchain.Mempool
-	m       *common.Metrics
-}
-
-func (c *mempoolWithMetrics) observeRPCLatency(method string, start time.Time, err error) {
-	var e string
-	if err != nil {
-		e = "failure"
-	}
-	c.m.RPCLatency.With(common.Labels{"method": method, "error": e}).Observe(float64(time.Since(start)) / 1e6) // in milliseconds
-}
-
-func (c *mempoolWithMetrics) Resync() (count int, err error) {
-	defer func(s time.Time) { c.observeRPCLatency("ResyncMempool", s, err) }(time.Now())
-	count, err = c.mempool.Resync()
-	if err == nil {
-		c.m.MempoolSize.Set(float64(count))
-	}
-	return count, err
-}
-
-func (c *mempoolWithMetrics) GetTransactions(address string) (v []bchain.Outpoint, err error) {
-	defer func(s time.Time) { c.observeRPCLatency("GetMempoolTransactions", s, err) }(time.Now())
-	return c.mempool.GetTransactions(address)
-}
-
-func (c *mempoolWithMetrics) GetAddrDescTransactions(addrDesc bchain.AddressDescriptor) (v []bchain.Outpoint, err error) {
-	defer func(s time.Time) { c.observeRPCLatency("GetMempoolTransactionsForAddrDesc", s, err) }(time.Now())
-	return c.mempool.GetAddrDescTransactions(addrDesc)
-}
-
-func (c *mempoolWithMetrics) GetAllEntries() (v bchain.MempoolTxidEntries) {
-	defer func(s time.Time) { c.observeRPCLatency("GetAllEntries", s, nil) }(time.Now())
-	return c.mempool.GetAllEntries()
-}
-
-func (c *mempoolWithMetrics) GetTransactionTime(txid string) uint32 {
-	return c.mempool.GetTransactionTime(txid)
+func (c *blockChainWithMetrics) Findzcserial(serialHex string) (txid string, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("Findzcserial", s, err) }(time.Now())
+	return c.b.Findzcserial(serialHex)
 }

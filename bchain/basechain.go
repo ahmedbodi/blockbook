@@ -29,11 +29,6 @@ func (b *BaseChain) GetNetworkName() string {
 	return b.Network
 }
 
-// GetMempoolEntry is not supported by default
-func (b *BaseChain) GetMempoolEntry(txid string) (*MempoolEntry, error) {
-	return nil, errors.New("GetMempoolEntry: not supported")
-}
-
 // EthereumTypeGetBalance is not supported
 func (b *BaseChain) EthereumTypeGetBalance(addrDesc AddressDescriptor) (*big.Int, error) {
 	return nil, errors.New("Not supported")
@@ -57,4 +52,9 @@ func (b *BaseChain) EthereumTypeGetErc20ContractInfo(contractDesc AddressDescrip
 // EthereumTypeGetErc20ContractBalance is not supported
 func (b *BaseChain) EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error) {
 	return nil, errors.New("Not supported")
+}
+
+// PIVX specific
+func (b *BaseChain) Findzcserial(serialHex string) (string, error) {
+    return "", errors.New("Findserial not supported")
 }
