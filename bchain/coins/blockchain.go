@@ -79,7 +79,7 @@ func init() {
 	BlockChainFactories["Zcoin"] = xzc.NewZcoinRPC
 	BlockChainFactories["Fujicoin"] = fujicoin.NewFujicoinRPC
 	BlockChainFactories["Flo"] = flo.NewFloRPC
-	BlockChainFactories["peso"] = hash.NewpesoRPC
+	BlockChainFactories["peso"] = peso.NewpesoRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
