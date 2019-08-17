@@ -54,15 +54,15 @@ func init() {
 	// pesoash mainnet Address encoding magics
 	MainNetParams = chaincfg.MainNetParams
 	MainNetParams.Net = MainnetMagic
-	MainNetParams.PubKeypesoAddrID = []byte{30}    // starting with 'D'
-	MainNetParams.ScriptpesoAddrID = []byte{19}
+	MainNetParams.PubKeyHashAddrID = []byte{30}    // starting with 'D'
+	MainNetParams.ScriptHashAddrID = []byte{19}
 	MainNetParams.PrivateKeyID = []byte{122}
 
 	// pesoash testnet Address encoding magics
 	TestNetParams = chaincfg.TestNet3Params
 	TestNetParams.Net = TestnetMagic
-	TestNetParams.PubKeypesoAddrID = []byte{139}   // starting with 'x' or 'y'
-	TestNetParams.ScriptpesoAddrID = []byte{19}
+	TestNetParams.PubKeyHashAddrID = []byte{139}   // starting with 'x' or 'y'
+	TestNetParams.ScriptHashAddrID = []byte{19}
 	TestNetParams.PrivateKeyID = []byte{239}
 }
 
