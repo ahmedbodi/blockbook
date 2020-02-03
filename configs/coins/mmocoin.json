@@ -28,9 +28,9 @@
     "verification_source": "fe984ea1e0ef4c4a06fe1414d78b4a37e5b032aa0c4c7d50674c6bc37a90ef53",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
-      "bin/mmocoin-qt"
+      "mmocoin-qt"
     ],
-    "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/bin/mmocoin -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
+    "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/mmocoin -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
     "logrotate_files_template": "{{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend/*.log",
     "postinst_script_template": "",
     "service_type": "forking",
