@@ -35,7 +35,6 @@ import (
 	"blockbook/bchain/coins/zec"
 	"blockbook/bchain/coins/qbc"
 	"blockbook/bchain/coins/coffee"
-	"blockbook/bchain/coins/hash"
 	"blockbook/bchain/coins/nyc3"
 	"blockbook/bchain/coins/sin"
 	"blockbook/bchain/coins/mmocoin"
@@ -105,7 +104,6 @@ func init() {
 	BlockChainFactories["Ritocoin"] = ritocoin.NewRitocoinRPC
 	BlockChainFactories["QBC"] = qbc.NewqbcRPC
 	BlockChainFactories["coffee"] = coffee.NewCoffeERPC
-	BlockChainFactories["hash"] = hash.NewhashRPC
 	BlockChainFactories["nyc3"] = nyc3.NewNyc3RPC
 	BlockChainFactories["sin"] = sin.NewsinRPC
 	BlockChainFactories["mmocoin"] = mmocoin.NewMmocoinRPC
