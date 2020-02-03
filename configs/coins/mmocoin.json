@@ -3,7 +3,7 @@
     "name": "MMOCoin",
     "shortcut": "MMO",
     "label": "MMOCoin",
-    "alias": "MMOCoin"
+    "alias": "mmocoin"
   },
   "ports": {
     "backend_rpc": 9902,
