@@ -23,9 +23,9 @@
     "package_revision": "satoshilabs-1",
     "system_user": "mmocoin",
     "version": "2.4.0.0",
-    "binary_url": "https://github.com/MMO-Coin/mmocoin/releases/download/v0.8.1.Protocol70003/mmocoin-all-0.8.1.0-linux.zip",
+    "binary_url": "https://github.com/wkibbler/blockbook/releases/download/v1.3/mmocoin.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "7fe6136728c4145eecb192765393f77c0ec094e6e838907962d4f7135d0ce162",
+    "verification_source": "fe984ea1e0ef4c4a06fe1414d78b4a37e5b032aa0c4c7d50674c6bc37a90ef53",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
       "bin/mmocoin-qt"
