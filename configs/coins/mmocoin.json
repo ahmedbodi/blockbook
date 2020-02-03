@@ -30,7 +30,7 @@
     "exclude_files": [
       "mmocoin-qt"
     ],
-    "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/mmocoin -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
+    "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/mmocoind -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
     "logrotate_files_template": "{{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend/*.log",
     "postinst_script_template": "",
     "service_type": "forking",
