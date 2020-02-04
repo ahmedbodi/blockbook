@@ -20,6 +20,64 @@ func TestMain(m *testing.M) {
 	os.Exit(c)
 }
 
+func Test_GetAddrDescFromAddress_Testnet(t *testing.T) {
+	type args struct {
+		address string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "P2PKH1",
+			args:    args{address: "mgPdTgEq6YqUJ4yzQgR8jH5TCX5c5yRwCP"},
+			want:    "76a91409957dfdb3eb620a94b99857e13949551584c33688ac",
+			wantErr: false,
+		},
+		{
+			name:    "P2SH1-legacy",
+			args:    args{address: "2MvGVySztevmycxrSmMRjJaVj2iJin7qpap"},
+			want:    "a9142126232e3f47ae0f1246ec5f05fc400d83c86a0d87",
+			wantErr: false,
+		},
+		{
+			name:    "P2SH2-legacy",
+			args:    args{address: "2N9a2TNzWz1FEKGFxUdMEh62V83URdZ5QAZ"},
+			want:    "a914b31049e7ee51501fe19e3e0cdb803dc84cf99f9e87",
+			wantErr: false,
+		},
+		{
+			name:    "P2SH1",
+			args:    args{address: "QPdG6Ts8g2q4m9cVPTTkPGwAB6kYgXB7Hc"},
+			want:    "a9142126232e3f47ae0f1246ec5f05fc400d83c86a0d87",
+			wantErr: false,
+		},
+		{
+			name:    "P2SH2",
+			args:    args{address: "QcvnaPrm17JKTT216jPFmnTvGRvFX2fWzN"},
+			want:    "a914b31049e7ee51501fe19e3e0cdb803dc84cf99f9e87",
+			wantErr: false,
+		},
+	}
+	parser := NewMmocoinParser(GetChainParams("test"), &btc.Configuration{})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parser.GetAddrDescFromAddress(tt.args.address)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAddrDescFromAddress() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			h := hex.EncodeToString(got)
+			if !reflect.DeepEqual(h, tt.want) {
+				t.Errorf("GetAddrDescFromAddress() = %v, want %v", h, tt.want)
+			}
+		})
+	}
+}
+
 func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	type args struct {
 		address string
@@ -32,26 +90,38 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	}{
 		{
 			name:    "P2PKH1",
-			args:    args{address: "RAoGkGhKwzxLnstApumYPD2eTrAJ849cga"},
-			want:    "76a91410a8805f1a6af1a5927088544b0b6ec7d6f0ab8b88ac",
+			args:    args{address: "LgJGe7aKy1wfXESKhiKeRWj6z4KjzCfXNW"},
+			want:    "76a914e72ba56ab6afccac045d696b979e3b5077e88d1988ac",
 			wantErr: false,
 		},
 		{
 			name:    "P2PKH2",
-			args:    args{address: "RTq37kPJqMS36tZYunxo2abrBMLeYSCAaa"},
-			want:    "76a914cb78181d62d312fdb9aacca433570150dcf0dec288ac",
+			args:    args{address: "LiTVReQ6N8rWc2pNg2XMwCWq7A9P15teWg"},
+			want:    "76a914feda50542e61108cf53b93dbffa0959f91ccb32588ac",
 			wantErr: false,
 		},
 		{
 			name:    "P2SH1",
-			args:    args{address: "rCzjkBoY2duVn2WizKxfBedTVWAg6UhfLZ"},
-			want:    "a9144a2a40987c74578ee517d426aa2c43fc568f7e0887",
+			args:    args{address: "MLTQ8niHMnpJLNvK72zBeY91hQmUtoo8nX"},
+			want:    "a91489ba6cf45546f91f1bdf553e695d63fc6b8795bd87",
 			wantErr: false,
 		},
 		{
 			name:    "P2SH2",
-			args:    args{address: "rDzGemZkv9FbDDh5pvWfr7TWtMUnNRRE7T"},
-			want:    "a914550bc2fcc1992afade4d298326ee6a03ab975a9387",
+			args:    args{address: "MAVWzxXm8KGkZTesqLtqywzrvbs96FEoKy"},
+			want:    "a9141c6fbaf46d64221e80cbae182c33ddf81b9294ac87",
+			wantErr: false,
+		},
+		{
+			name:    "witness_v0_keyhash",
+			args:    args{address: "ltc1q5fgkuac9s2ry56jka5s6zqsyfcugcchrqgz2yl"},
+			want:    "0014a2516e770582864a6a56ed21a102044e388c62e3",
+			wantErr: false,
+		},
+		{
+			name:    "witness_v0_scripthashx",
+			args:    args{address: "ltc1qu9dgdg330r6r84g5mw7wqshg04exv2uttmw2elfwx74h5tgntuzsk3x5nd"},
+			want:    "0020e15a86a23178f433d514dbbce042e87d72662b8b5edcacfd2e37ab7a2d135f05",
 			wantErr: false,
 		},
 	}
@@ -73,96 +143,62 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 }
 
 var (
-	testTx1       bchain.Tx
-	testTxPacked1 = "000a08848bcae7c30e0200000001c171348ffc8976074fa064e48598a816fce3798afc635fb67d99580e50b8e614000000006a473044022009e07574fa543ad259bd3334eb365c655c96d310c578b64c24d7f77fa7dc591c0220427d8ae6eacd1ca2d1994e9ec49cb322aacdde98e4bdb065e0fce81162fb3aa9012102d46827546548b9b47ae1e9e84fc4e53513e0987eeb1dd41220ba39f67d3bf46affffffff02f8137114000000001976a914587a2afa560ccaeaeb67cb72a0db7e2573a179e488ace0c48110000000001976a914d85e6ab66ab0b2c4cfd40ca3b0a779529da5799288ac00000000"
+	testTx1 bchain.Tx
 
-	testTx2       bchain.Tx
-	testTxPacked2 = "000a08848bcae7c30e02000000029e2e14113b2f55726eebaa440edec707fcec3a31ce28fa125afea1e755fb6850010000006a47304402204034c3862f221551cffb2aa809f621f989a75cdb549c789a5ceb3a82c0bcc21c022001b4638f5d73fdd406a4dd9bf99be3dfca4a572b8f40f09b8fd495a7756c0db70121027a32ef45aef2f720ccf585f6fb0b8a7653db89cacc3320e5b385146851aba705fefffffff3b240ae32c542786876fcf23b4b2ab4c34ef077912898ee529756ed4ba35910000000006a47304402204d442645597b13abb85e96e5acd34eff50a4418822fe6a37ed378cdd24574dff02205ae667c56eab63cc45a51063f15b72136fd76e97c46af29bd28e8c4d405aa211012102cde27d7b29331ea3fef909a8d91f6f7753e99a3dd129914be50df26eed73fab3feffffff028447bf38000000001976a9146d7badec5426b880df25a3afc50e476c2423b34b88acb26b556a740000001976a914b3020d0ab85710151fa509d5d9a4e783903d681888ac83080a00"
+	testTxPacked1 = "0001e4538ba8d7aa2002000000031e1977dc524bec5929e95d8d0946812944b7b5bda12f5b99fdf557773f2ee65e0100000000ffffffff8a398e44546dce0245452b90130e86832b21fd68f26662bc33aeb7c6c115d23c1900000000ffffffffb807ab93a7fcdff7af6d24581a4a18aa7c1db1ebecba2617a6805b009513940f0c00000000ffffffff020001a04a000000001976a9141ae882e788091732da6910595314447c9e38bd8d88ac27440f00000000001976a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac00000000"
 )
 
 func init() {
 	testTx1 = bchain.Tx{
-		Hex:       "0200000001c171348ffc8976074fa064e48598a816fce3798afc635fb67d99580e50b8e614000000006a473044022009e07574fa543ad259bd3334eb365c655c96d310c578b64c24d7f77fa7dc591c0220427d8ae6eacd1ca2d1994e9ec49cb322aacdde98e4bdb065e0fce81162fb3aa9012102d46827546548b9b47ae1e9e84fc4e53513e0987eeb1dd41220ba39f67d3bf46affffffff02f8137114000000001976a914587a2afa560ccaeaeb67cb72a0db7e2573a179e488ace0c48110000000001976a914d85e6ab66ab0b2c4cfd40ca3b0a779529da5799288ac00000000",
-		Blocktime: 1554837703,
-		Txid:      "d4d3a093586eae0c3668fd288d9e24955928a894c20b551b38dd18c99b123a7c",
+		Hex:       "02000000031e1977dc524bec5929e95d8d0946812944b7b5bda12f5b99fdf557773f2ee65e0100000000ffffffff8a398e44546dce0245452b90130e86832b21fd68f26662bc33aeb7c6c115d23c1900000000ffffffffb807ab93a7fcdff7af6d24581a4a18aa7c1db1ebecba2617a6805b009513940f0c00000000ffffffff020001a04a000000001976a9141ae882e788091732da6910595314447c9e38bd8d88ac27440f00000000001976a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac00000000",
+		Blocktime: 1519053456,
+		Txid:      "1c50c1770374d7de2f81a87463a5225bb620d25fd467536223a5b715a47c9e32",
 		LockTime:  0,
 		Version:   2,
 		Vin: []bchain.Vin{
 			{
 				ScriptSig: bchain.ScriptSig{
-					Hex: "473044022009e07574fa543ad259bd3334eb365c655c96d310c578b64c24d7f77fa7dc591c0220427d8ae6eacd1ca2d1994e9ec49cb322aacdde98e4bdb065e0fce81162fb3aa9012102d46827546548b9b47ae1e9e84fc4e53513e0987eeb1dd41220ba39f67d3bf46a",
+					Hex: "",
 				},
-				Txid:     "14e6b8500e58997db65f63fc8a79e3fc16a89885e464a04f077689fc8f3471c1",
-				Vout:     0,
+				Txid:     "5ee62e3f7757f5fd995b2fa1bdb5b744298146098d5de92959ec4b52dc77191e",
+				Vout:     1,
+				Sequence: 4294967295,
+			},
+			{
+				ScriptSig: bchain.ScriptSig{
+					Hex: "",
+				},
+				Txid:     "3cd215c1c6b7ae33bc6266f268fd212b83860e13902b454502ce6d54448e398a",
+				Vout:     25,
+				Sequence: 4294967295,
+			},
+			{
+				ScriptSig: bchain.ScriptSig{
+					Hex: "",
+				},
+				Txid:     "0f941395005b80a61726baecebb11d7caa184a1a58246daff7dffca793ab07b8",
+				Vout:     12,
 				Sequence: 4294967295,
 			},
 		},
 		Vout: []bchain.Vout{
 			{
-				ValueSat: *big.NewInt(342955000),
+				ValueSat: *big.NewInt(1252000000),
 				N:        0,
 				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a914587a2afa560ccaeaeb67cb72a0db7e2573a179e488ac",
+					Hex: "76a9141ae882e788091732da6910595314447c9e38bd8d88ac",
 					Addresses: []string{
-						"RHM1tmdvkk7vDoiGxwUJAMNNmDqywZ5tEn",
+						"LMgENNXzzuPxp7vfMjDrCU44bsmrEMgqvc",
 					},
 				},
 			},
 			{
-				ValueSat: *big.NewInt(276940000),
+				ValueSat: *big.NewInt(1000487),
 				N:        1,
 				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a914d85e6ab66ab0b2c4cfd40ca3b0a779529da5799288ac",
+					Hex: "76a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac",
 					Addresses: []string{
-						"RV1F99b9UBBrCM8aNKugsqsDM8iqoCq7Mt",
-					},
-				},
-			},
-		},
-	}
-
-	testTx2 = bchain.Tx{
-		Hex:       "02000000029e2e14113b2f55726eebaa440edec707fcec3a31ce28fa125afea1e755fb6850010000006a47304402204034c3862f221551cffb2aa809f621f989a75cdb549c789a5ceb3a82c0bcc21c022001b4638f5d73fdd406a4dd9bf99be3dfca4a572b8f40f09b8fd495a7756c0db70121027a32ef45aef2f720ccf585f6fb0b8a7653db89cacc3320e5b385146851aba705fefffffff3b240ae32c542786876fcf23b4b2ab4c34ef077912898ee529756ed4ba35910000000006a47304402204d442645597b13abb85e96e5acd34eff50a4418822fe6a37ed378cdd24574dff02205ae667c56eab63cc45a51063f15b72136fd76e97c46af29bd28e8c4d405aa211012102cde27d7b29331ea3fef909a8d91f6f7753e99a3dd129914be50df26eed73fab3feffffff028447bf38000000001976a9146d7badec5426b880df25a3afc50e476c2423b34b88acb26b556a740000001976a914b3020d0ab85710151fa509d5d9a4e783903d681888ac83080a00",
-		Blocktime: 1554837703,
-		Txid:      "8e480d5c1bf7f11d1cbe396ab7dc14e01ea4e1aff45de7c055924f61304ad434",
-		LockTime:  657539,
-		Version:   2,
-		Vin: []bchain.Vin{
-			{
-				ScriptSig: bchain.ScriptSig{
-					Hex: "47304402204034c3862f221551cffb2aa809f621f989a75cdb549c789a5ceb3a82c0bcc21c022001b4638f5d73fdd406a4dd9bf99be3dfca4a572b8f40f09b8fd495a7756c0db70121027a32ef45aef2f720ccf585f6fb0b8a7653db89cacc3320e5b385146851aba705",
-				},
-				Txid:     "5068fb55e7a1fe5a12fa28ce313aecfc07c7de0e44aaeb6e72552f3b11142e9e",
-				Vout:     1,
-				Sequence: 4294967294,
-			},
-			{
-				ScriptSig: bchain.ScriptSig{
-					Hex: "47304402204d442645597b13abb85e96e5acd34eff50a4418822fe6a37ed378cdd24574dff02205ae667c56eab63cc45a51063f15b72136fd76e97c46af29bd28e8c4d405aa211012102cde27d7b29331ea3fef909a8d91f6f7753e99a3dd129914be50df26eed73fab3",
-				},
-				Txid:     "1059a34bed569752ee98289177f04ec3b42a4b3bf2fc76687842c532ae40b2f3",
-				Vout:     0,
-				Sequence: 4294967294,
-			},
-		},
-		Vout: []bchain.Vout{
-			{
-				ValueSat: *big.NewInt(952059780),
-				N:        0,
-				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a9146d7badec5426b880df25a3afc50e476c2423b34b88ac",
-					Addresses: []string{
-						"RKG5tpWwjhtqddTgA3QhUh7QmKcuvBnhBX",
-					},
-				},
-			},
-			{
-				ValueSat: *big.NewInt(500000189362),
-				N:        1,
-				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a914b3020d0ab85710151fa509d5d9a4e783903d681888ac",
-					Addresses: []string{
-						"RRbhVMbLfuezHPwUMujTmDFAzv64Y9mJqd",
+						"LV1ByjbJNFTHyFQqwqwdJXKJznYDzXzg4B",
 					},
 				},
 			},
@@ -187,22 +223,11 @@ func Test_PackTx(t *testing.T) {
 			name: "mmocoin-1",
 			args: args{
 				tx:        testTx1,
-				height:    657540,
-				blockTime: 1554837703,
+				height:    123987,
+				blockTime: 1519053456,
 				parser:    NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    testTxPacked1,
-			wantErr: false,
-		},
-		{
-			name: "mmocoin-2",
-			args: args{
-				tx:        testTx2,
-				height:    657540,
-				blockTime: 1554837703,
-				parser:    NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
-			},
-			want:    testTxPacked2,
 			wantErr: false,
 		},
 	}
@@ -240,17 +265,7 @@ func Test_UnpackTx(t *testing.T) {
 				parser:   NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
 			},
 			want:    &testTx1,
-			want1:   657540,
-			wantErr: false,
-		},
-		{
-			name: "mmocoin-2",
-			args: args{
-				packedTx: testTxPacked2,
-				parser:   NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
-			},
-			want:    &testTx2,
-			want1:   657540,
+			want1:   123987,
 			wantErr: false,
 		},
 	}

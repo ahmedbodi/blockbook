@@ -12,7 +12,6 @@ type MmocoinRPC struct {
 	*btc.BitcoinRPC
 }
 
-
 func NewMmocoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
@@ -22,7 +21,7 @@ func NewMmocoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationT
 	s := &MmocoinRPC{
 		b.(*btc.BitcoinRPC),
 	}
-	s.RPCMarshaler = btc.JSONMarshalerV1{}
+	s.RPCMarshaler = btc.JSONMarshalerV2{}
 	s.ChainConfig.SupportsEstimateFee = false
 
 	return s, nil
