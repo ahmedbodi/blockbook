@@ -3,92 +3,14 @@ package mmocoin
 import (
 	"blockbook/bchain"
 	"blockbook/bchain/coins/btc"
-        "github.com/juju/errors"
 	"encoding/json"
+
 	"github.com/golang/glog"
+	"github.com/juju/errors"
 )
 
 type MmocoinRPC struct {
 	*btc.BitcoinRPC
-}
-
-// getnetworkinfo
-type CmdGetNetworkInfo struct {
-        Method string `json:"method"`
-}
-type ResGetNetworkInfo struct {
-        Error  *bchain.RPCError `json:"error"`
-        Result struct {
-                Version         json.Number `json:"version"`
-                Subversion      json.Number `json:"subversion"`
-                ProtocolVersion json.Number `json:"protocolversion"`
-                Timeoffset      float64     `json:"timeoffset"`
-                Warnings        string      `json:"warnings"`
-        } `json:"result"`
-}
-
-// getblockchaininfo
-type CmdGetMmocoinBlockChainInfo struct {
-        Method string `json:"method"`
-}
-type ResGetBlockChainInfo struct {
-        Error  *bchain.RPCError `json:"error"`
-        Result struct {
-                Chain         string      `json:"chain"`
-                Blocks        int         `json:"blocks"`
-                Headers       int         `json:"headers"`
-                Bestblockhash string      `json:"bestblockhash"`
-                Difficulty struct {
-                       ProofOfWork  json.Number `json:"proof-of-work"`
-                       ProofOfStake json.Number `json:"proof-of-stake"`
-                }
-                SizeOnDisk    int64       `json:"size_on_disk"`
-                Warnings      string      `json:"warnings"`
-        } `json:"result"`
-}
-
-// GetChainInfo returns information about the connected backend
-func (b *MmocoinRPC) GetChainInfo() (*bchain.ChainInfo, error) {
-        glog.V(1).Info("rpc: getblockchaininfo")
-
-        resCi := ResGetBlockChainInfo{}
-        err := b.Call(&CmdGetMmocoinBlockChainInfo{Method: "getblockchaininfo"}, &resCi)
-        if err != nil {
-                return nil, err
-        }
-        if resCi.Error != nil {
-                return nil, resCi.Error
-        }
-
-        glog.V(1).Info("rpc: getnetworkinfo")
-        resNi := ResGetNetworkInfo{}
-        err = b.Call(&CmdGetNetworkInfo{Method: "getnetworkinfo"}, &resNi)
-        if err != nil {
-                return nil, err
-        }
-        if resNi.Error != nil {
-                return nil, resNi.Error
-        }
-
-        // cant store difficulty here as there are two types
-        rv := &bchain.ChainInfo{
-                Bestblockhash: resCi.Result.Bestblockhash,
-                Blocks:        resCi.Result.Blocks,
-                Chain:         resCi.Result.Chain,
-                Headers:       resCi.Result.Headers,
-                SizeOnDisk:    resCi.Result.SizeOnDisk,
-                Subversion:    string(resNi.Result.Subversion),
-                Timeoffset:    resNi.Result.Timeoffset,
-        }
-        rv.Version = string(resNi.Result.Version)
-        rv.ProtocolVersion = string(resNi.Result.ProtocolVersion)
-        if len(resCi.Result.Warnings) > 0 {
-                rv.Warnings = resCi.Result.Warnings + " "
-        }
-        if resCi.Result.Warnings != resNi.Result.Warnings {
-                rv.Warnings += resNi.Result.Warnings
-        }
-        return rv, nil
 }
 
 func NewMmocoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
@@ -100,18 +22,20 @@ func NewMmocoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationT
 	s := &MmocoinRPC{
 		b.(*btc.BitcoinRPC),
 	}
-	s.RPCMarshaler = btc.JSONMarshalerV1{}
-	s.ChainConfig.SupportsEstimateSmartFee = true
+	s.RPCMarshaler = btc.JSONMarshalerV2{}
+	s.ChainConfig.SupportsEstimateFee = false
 
 	return s, nil
 }
 
 func (b *MmocoinRPC) Initialize() error {
-	chainName, err := b.GetChainInfoAndInitializeMempool(b)
+	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
 	}
+	chainName := ci.Chain
 
+	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)
 
 	// always create parser
@@ -132,10 +56,10 @@ func (b *MmocoinRPC) Initialize() error {
 }
 
 // GetBlock returns block with given hash.
-func (b *MmocoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
+func (s *MmocoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	var err error
 	if hash == "" && height > 0 {
-		hash, err = b.GetBlockHash(height)
+		hash, err = s.GetBlockHash(height)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +71,7 @@ func (b *MmocoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error)
 	req := btc.CmdGetBlock{Method: "getblock"}
 	req.Params.BlockHash = hash
 	req.Params.Verbosity = 1
-	err = b.Call(&req, &res)
+	err = s.Call(&req, &res)
 
 	if err != nil {
 		return nil, errors.Annotatef(err, "hash %v", hash)
@@ -158,7 +82,7 @@ func (b *MmocoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error)
 
 	txs := make([]bchain.Tx, 0, len(res.Result.Txids))
 	for _, txid := range res.Result.Txids {
-		tx, err := b.GetTransaction(txid)
+		tx, err := s.GetTransaction(txid)
 		if err != nil {
 			if err == bchain.ErrTxNotFound {
 				glog.Errorf("rpc: getblock: skipping transanction in block %s due error: %s", hash, err)
@@ -175,12 +99,8 @@ func (b *MmocoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error)
 	return block, nil
 }
 
-func isErrBlockNotFound(err *bchain.RPCError) bool {
-	return err.Message == "Block not found" ||
-		err.Message == "Block height out of range"
-}
-
 // GetTransactionForMempool returns a transaction by the transaction ID.
-func (b *MmocoinRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
-	return b.GetTransaction(txid)
+// It could be optimized for mempool, i.e. without block time and confirmations
+func (s *MmocoinRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
+	return s.GetTransaction(txid)
 }
