@@ -122,7 +122,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9141ae882e788091732da6910595314447c9e38bd8d88ac",
 					Addresses: []string{
-						"LMgENNXzzuPxp7vfMjDrCU44bsmrEMgqvc",
+						"MAMSLb8aRGKiSzCqQZtVAibdrtHjbKhEdJ",
 					},
 				},
 			},
@@ -132,7 +132,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "76a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac",
 					Addresses: []string{
-						"LV1ByjbJNFTHyFQqwqwdJXKJznYDzXzg4B",
+						"MHgPwxBsncP3c7h1zgcGGmrtFo47MWaeHN",
 					},
 				},
 			},
