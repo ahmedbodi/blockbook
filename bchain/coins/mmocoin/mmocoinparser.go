@@ -21,9 +21,9 @@ var (
 func init() {
 	MainNetParams = chaincfg.MainNetParams
 	MainNetParams.Net = MainnetMagic
-	MainNetParams.PubKeyHashAddrID = []byte{31}
-	MainNetParams.ScriptHashAddrID = []byte{78}
-	MainNetParams.Bech32HRPSegwit = "dpn"
+	MainNetParams.PubKeyHashAddrID = []byte{50}
+	MainNetParams.ScriptHashAddrID = []byte{110}
+	MainNetParams.Bech32HRPSegwit = "mmo"
 }
 
 type MmocoinParser struct {
