@@ -3,10 +3,8 @@
 package mmocoin
 
 import (
-	"blockbook/bchain"
 	"blockbook/bchain/coins/btc"
 	"encoding/hex"
-	"math/big"
 	"os"
 	"reflect"
 	"testing"
@@ -20,34 +18,6 @@ func TestMain(m *testing.M) {
 	os.Exit(c)
 }
 
-func Test_GetAddrDescFromAddress_Testnet(t *testing.T) {
-	type args struct {
-		address string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
-	}{
-	}
-	parser := NewMmocoinParser(GetChainParams("test"), &btc.Configuration{})
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parser.GetAddrDescFromAddress(tt.args.address)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAddrDescFromAddress() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			h := hex.EncodeToString(got)
-			if !reflect.DeepEqual(h, tt.want) {
-				t.Errorf("GetAddrDescFromAddress() = %v, want %v", h, tt.want)
-			}
-		})
-	}
-}
-
 func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 	type args struct {
 		address string
@@ -58,8 +28,14 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
+		{
+			name:    "P2PKH1",
+			args:    args{address: "MAMSLb8aRGKiSzCqQZtVAibdrtHjbKhEdJ"},
+			want:    "76a91473141fef01a297fe8555aa749f83988b0f89f15588ac",
+			wantErr: false,
+		},
 	}
-	parser := NewMmocoinParser(GetChainParams("main"), &btc.Configuration{})
+	parser := NewMmocoin(GetChainParams("main"), &btc.Configuration{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -71,151 +47,6 @@ func Test_GetAddrDescFromAddress_Mainnet(t *testing.T) {
 			h := hex.EncodeToString(got)
 			if !reflect.DeepEqual(h, tt.want) {
 				t.Errorf("GetAddrDescFromAddress() = %v, want %v", h, tt.want)
-			}
-		})
-	}
-}
-
-var (
-	testTx1 bchain.Tx
-
-	testTxPacked1 = "0001e4538ba8d7aa2002000000031e1977dc524bec5929e95d8d0946812944b7b5bda12f5b99fdf557773f2ee65e0100000000ffffffff8a398e44546dce0245452b90130e86832b21fd68f26662bc33aeb7c6c115d23c1900000000ffffffffb807ab93a7fcdff7af6d24581a4a18aa7c1db1ebecba2617a6805b009513940f0c00000000ffffffff020001a04a000000001976a9141ae882e788091732da6910595314447c9e38bd8d88ac27440f00000000001976a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac00000000"
-)
-
-func init() {
-	testTx1 = bchain.Tx{
-		Hex:       "02000000031e1977dc524bec5929e95d8d0946812944b7b5bda12f5b99fdf557773f2ee65e0100000000ffffffff8a398e44546dce0245452b90130e86832b21fd68f26662bc33aeb7c6c115d23c1900000000ffffffffb807ab93a7fcdff7af6d24581a4a18aa7c1db1ebecba2617a6805b009513940f0c00000000ffffffff020001a04a000000001976a9141ae882e788091732da6910595314447c9e38bd8d88ac27440f00000000001976a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac00000000",
-		Blocktime: 1519053456,
-		Txid:      "1c50c1770374d7de2f81a87463a5225bb620d25fd467536223a5b715a47c9e32",
-		LockTime:  0,
-		Version:   2,
-		Vin: []bchain.Vin{
-			{
-				ScriptSig: bchain.ScriptSig{
-					Hex: "",
-				},
-				Txid:     "5ee62e3f7757f5fd995b2fa1bdb5b744298146098d5de92959ec4b52dc77191e",
-				Vout:     1,
-				Sequence: 4294967295,
-			},
-			{
-				ScriptSig: bchain.ScriptSig{
-					Hex: "",
-				},
-				Txid:     "3cd215c1c6b7ae33bc6266f268fd212b83860e13902b454502ce6d54448e398a",
-				Vout:     25,
-				Sequence: 4294967295,
-			},
-			{
-				ScriptSig: bchain.ScriptSig{
-					Hex: "",
-				},
-				Txid:     "0f941395005b80a61726baecebb11d7caa184a1a58246daff7dffca793ab07b8",
-				Vout:     12,
-				Sequence: 4294967295,
-			},
-		},
-		Vout: []bchain.Vout{
-			{
-				ValueSat: *big.NewInt(1252000000),
-				N:        0,
-				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a9141ae882e788091732da6910595314447c9e38bd8d88ac",
-					Addresses: []string{
-						"MAMSLb8aRGKiSzCqQZtVAibdrtHjbKhEdJ",
-					},
-				},
-			},
-			{
-				ValueSat: *big.NewInt(1000487),
-				N:        1,
-				ScriptPubKey: bchain.ScriptPubKey{
-					Hex: "76a9146b474cbf0f6004329b630bdd4798f2c23d1751b688ac",
-					Addresses: []string{
-						"MHgPwxBsncP3c7h1zgcGGmrtFo47MWaeHN",
-					},
-				},
-			},
-		},
-	}
-}
-
-func Test_PackTx(t *testing.T) {
-	type args struct {
-		tx        bchain.Tx
-		height    uint32
-		blockTime int64
-		parser    *MmocoinParser
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
-	}{
-		{
-			name: "mmocoin-1",
-			args: args{
-				tx:        testTx1,
-				height:    123987,
-				blockTime: 1519053456,
-				parser:    NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
-			},
-			want:    testTxPacked1,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.args.parser.PackTx(&tt.args.tx, tt.args.height, tt.args.blockTime)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("packTx() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			h := hex.EncodeToString(got)
-			if !reflect.DeepEqual(h, tt.want) {
-				t.Errorf("packTx() = %v, want %v", h, tt.want)
-			}
-		})
-	}
-}
-
-func Test_UnpackTx(t *testing.T) {
-	type args struct {
-		packedTx string
-		parser   *MmocoinParser
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *bchain.Tx
-		want1   uint32
-		wantErr bool
-	}{
-		{
-			name: "mmocoin-1",
-			args: args{
-				packedTx: testTxPacked1,
-				parser:   NewMmocoinParser(GetChainParams("main"), &btc.Configuration{}),
-			},
-			want:    &testTx1,
-			want1:   123987,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b, _ := hex.DecodeString(tt.args.packedTx)
-			got, got1, err := tt.args.parser.UnpackTx(b)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("unpackTx() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("unpackTx() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("unpackTx() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
