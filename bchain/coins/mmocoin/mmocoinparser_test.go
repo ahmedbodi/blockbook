@@ -92,7 +92,7 @@ func init() {
 				ScriptPubKey: bchain.ScriptPubKey{
 					Hex: "2102bdb95d89f07e3a29305f3c8de86ec211ed77b7e15cf314c85c532a6b71c2ce07ac",
 					Addresses: []string{
-						"MAMSLb8aRGKiSzCqQZtVAibdrtHjbKhEdJ",
+						"Dm485bNJaiGJmEVth2BnZ4Y1ygcufDsi4E",
 					},
 				},
 			},
